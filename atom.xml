@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+    <id>https://wangpifu.github.io</id>
+    <title>Gridea</title>
+    <updated>2020-04-29T22:42:09.582Z</updated>
+    <generator>https://github.com/jpmonette/feed</generator>
+    <link rel="alternate" href="https://wangpifu.github.io"/>
+    <link rel="self" href="https://wangpifu.github.io/atom.xml"/>
+    <subtitle>温故而知新</subtitle>
+    <logo>https://wangpifu.github.io/images/avatar.png</logo>
+    <icon>https://wangpifu.github.io/favicon.ico</icon>
+    <rights>All rights reserved 2020, Gridea</rights>
+    <entry>
+        <title type="html"><![CDATA[第一篇博客]]></title>
+        <id>https://wangpifu.github.io/post/first-blog/</id>
+        <link href="https://wangpifu.github.io/post/first-blog/">
+        </link>
+        <updated>2020-04-29T09:27:05.000Z</updated>
+        <content type="html"><![CDATA[<p>这是一篇建立在github pages，用Gridea构建管理的私人博客站点。目前来看Gridea是最方便的搭建管理软件，避免了安装nodejs 或者 ruby。 这对于Windows系统非常方便。坦白来讲，我并不希望在我的Windows box上安装任何和技术开发相关的软件，因为他们的使用频率很低，最终会被我遗忘在漫长的时光里。而我的开发机器（based on linux），我又希望它能只承载和开发相关的事务。另外，Gridea看起来更加直观与人性化，避免了许多与写作不相关的操作。希望Gridea可以一直被维护下去，感谢Gridea。cnblog本来是我的第一选择，但是需要手机号注册。CSDN则有太多的广告。知乎的话，我更倾向于发布仔细审视后的文章。这个站点则会更随意一些，有些想法我可以先记载下来，在日后慢慢的更改完善。</p>
+<p>写博客的动力来自于一次失败的面试。我意识到很多技术的积累不能光靠工作，以及需要了解平时工作下的更深入的东西。人必须要不断地走出舒适圈，去接触自己不熟悉的东西，再能慢慢变得全能起来。我是一个不喜欢走在科技前端的人，平时更倾向于利用纸笔做笔记，但是现在意识到对于代码来讲，博客可能是个更合适的地方。对于刚开始的几篇文章，发布的频率可能比较高，内容可能不够精细，因为我希望能提纲挈领地把一些我在脑海中总结过的知识转移到这个站点上来，会在随后的日子里慢慢打磨。另外，我此时迫不及待地希望我能把一些需要学习的知识点电子化的记录下来，这也会导致初期一些文章显得杂乱。</p>
+<p>希望明天会更好。<br>
+--20200429 阴天 纽约</p>
+]]></content>
+    </entry>
+</feed>
