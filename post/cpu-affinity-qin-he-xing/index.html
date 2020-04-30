@@ -1,0 +1,206 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>cpu affinity 亲和性 | Gridea</title>
+<link rel="shortcut icon" href="https://wangpifu.github.io/favicon.ico?v=1588216083138">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://wangpifu.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="cpu affinity 亲和性 | Gridea - Atom Feed" href="https://wangpifu.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+
+    <meta name="description" content="cpu affinity 就是让某个进程/线程绑定在某个cpu(core)上，使其尽量长时间的运行而不被迁移到其他core上的倾向性。 Linux kernel提供了两个api来修改或查看某个进程/线程的亲和性：
+int sched_set..." />
+    <meta name="keywords" content="kernel,linux" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://wangpifu.github.io">
+  <img class="avatar" src="https://wangpifu.github.io/images/avatar.png?v=1588216083138" alt="">
+  </a>
+  <h1 class="site-title">
+    Gridea
+  </h1>
+  <p class="site-description">
+    温故而知新
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          博客
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          标签
+        </a>
+      
+    
+      
+        <a href="/post/about" class="menu">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              cpu affinity 亲和性
+            </h2>
+            <div class="post-info">
+              <span>
+                2020-04-28
+              </span>
+              <span>
+                3 min read
+              </span>
+              
+                <a href="https://wangpifu.github.io/tag/_SwvYdKiq/" class="post-tag">
+                  # kernel
+                </a>
+              
+                <a href="https://wangpifu.github.io/tag/Sw56WNWMXq/" class="post-tag">
+                  # linux
+                </a>
+              
+            </div>
+            
+            <div class="post-content-wrapper">
+              <div class="post-content">
+                <p>cpu affinity 就是让某个进程/线程绑定在某个cpu(core)上，使其尽量长时间的运行而不被迁移到其他core上的倾向性。 Linux kernel提供了两个api来修改或查看某个进程/线程的亲和性：<br>
+<code>int sched_setaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask);</code><br>
+<code>int sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask);</code><br>
+如果pid是0，那么默认是当前thread。<br>
+cpu_set_t 是一个掩码数组，共1024位，每一位对应一个core，以下宏是对这个掩码进行操作的：</p>
+<pre><code>void CPU_ZERO (cpu_set_t *set)
+这个宏对 CPU 集 set 进行初始化，将其设置为空集。
+void CPU_SET (int cpu, cpu_set_t *set)
+这个宏将 cpu 加入 CPU 集 set 中。
+void CPU_CLR (int cpu, cpu_set_t *set)
+这个宏将 cpu 从 CPU 集 set 中删除。
+int CPU_ISSET (int cpu, const cpu_set_t *set)
+如果 cpu 是 CPU 集 set 的一员，这个宏就返回一个非零值（true），否则就返回零（false）。
+</code></pre>
+<p>我看到很多人说对于thread我们用pthread_setaffinity_np， 对于process我们才用sched_setafinity.于是我仔细的看了一下。首先，sched_setaffinity的man page上写的是</p>
+<blockquote>
+<p>A thread's CPU affinity mask determines the set of CPUs on which it is eligible to run</p>
+</blockquote>
+<p>当然它也写了</p>
+<blockquote>
+<p>(If you are using the POSIX threads API, then use pthread_setaffinity_np(3) instead of sched_setaffinity().)</p>
+</blockquote>
+<p>当我们使用</p>
+<pre><code>int pthread_setaffinity_np(pthread_t thread, size_t cpusetsize, const cpu_set_t *cpuset);
+int pthread_getaffinity_np(pthread_t thread, size_t cpusetsize, cpu_set_t *cpuset);
+</code></pre>
+<p>我们传入的是pthread_t. 而当我们使用<code>sched_setaffinity</code>时，我们传进去的可以是pid from <code>getpid()</code>,也可以是tid from <code>gettid()</code>.（对于单线程的进程，pid等于tid，对于多线程的进程，每个线程有不同的tid，但会有相同的pid。）pid_t 和pthread_t是不同的，pthread_t是同一个进程中各个线程之间的标识号，对于这个进程内是唯一的，而不同进程中，每个线程返回的pthread_t可能是一样的。而gettid是用来系统内各个线程间的标识符，由于linux采用轻量级进程实现的，它其实返回的应该是pid号。 还有需要注意的就是当你给一个线程设置了亲和性然后pthread_create 其他线程，其他线程会继承当前这个线程的亲和性。不过在我的工作范围内，sched_setaffinity 已经足够，因为线程的创建是固定的，我们也需要在创建后设置亲和性，所以不必担心亲和性的继承问题。</p>
+<p>BTW: gettid() is not implemented in glibc, 所以我们需要用ssyscall去回去tid</p>
+<pre><code class="language-c">pid_t getThreadId()
+{
+    return syscall(__NR_gettid);
+}
+</code></pre>
+
+              </div>
+              <div class="toc-container">
+                
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://wangpifu.github.io/post/c-multithreading-programming-xue-xi-1/">
+              <h3 class="post-title">
+                c++ Multithreading programming 学习(1)
+              </h3>
+            </a>
+          </div>
+        
+
+        
+
+        <div class="site-footer">
+  Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a>
+  <a class="rss" href="https://wangpifu.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>

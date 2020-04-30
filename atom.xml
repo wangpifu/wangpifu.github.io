@@ -2,7 +2,7 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>https://wangpifu.github.io</id>
     <title>Gridea</title>
-    <updated>2020-04-29T23:12:48.590Z</updated>
+    <updated>2020-04-30T03:08:09.524Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
     <link rel="alternate" href="https://wangpifu.github.io"/>
     <link rel="self" href="https://wangpifu.github.io/atom.xml"/>
@@ -20,6 +20,142 @@
 <p>写博客的动力来自于一次失败的面试。我意识到很多技术的积累不能光靠工作，以及需要了解平时工作下的更深入的东西。人必须要不断地走出舒适圈，去接触自己不熟悉的东西，再能慢慢变得全能起来。我是一个不喜欢走在科技前端的人，平时更倾向于利用纸笔做笔记，但是现在意识到对于代码来讲，博客可能是个更合适的地方。对于刚开始的几篇文章，发布的频率可能比较高，内容可能不够精细，因为我希望能提纲挈领地把一些我在脑海中总结过的知识转移到这个站点上来，会在随后的日子里慢慢打磨。另外，我此时迫不及待地希望我能把一些需要学习的知识点电子化的记录下来，这也会导致初期一些文章显得杂乱。</p>
 <p>希望明天会更好。<br>
 --20200429 阴天 纽约</p>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[cpu affinity 亲和性]]></title>
+        <id>https://wangpifu.github.io/post/cpu-affinity-qin-he-xing/</id>
+        <link href="https://wangpifu.github.io/post/cpu-affinity-qin-he-xing/">
+        </link>
+        <updated>2020-04-28T12:49:24.000Z</updated>
+        <content type="html"><![CDATA[<p>cpu affinity 就是让某个进程/线程绑定在某个cpu(core)上，使其尽量长时间的运行而不被迁移到其他core上的倾向性。 Linux kernel提供了两个api来修改或查看某个进程/线程的亲和性：<br>
+<code>int sched_setaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask);</code><br>
+<code>int sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask);</code><br>
+如果pid是0，那么默认是当前thread。<br>
+cpu_set_t 是一个掩码数组，共1024位，每一位对应一个core，以下宏是对这个掩码进行操作的：</p>
+<pre><code>void CPU_ZERO (cpu_set_t *set)
+这个宏对 CPU 集 set 进行初始化，将其设置为空集。
+void CPU_SET (int cpu, cpu_set_t *set)
+这个宏将 cpu 加入 CPU 集 set 中。
+void CPU_CLR (int cpu, cpu_set_t *set)
+这个宏将 cpu 从 CPU 集 set 中删除。
+int CPU_ISSET (int cpu, const cpu_set_t *set)
+如果 cpu 是 CPU 集 set 的一员，这个宏就返回一个非零值（true），否则就返回零（false）。
+</code></pre>
+<p>我看到很多人说对于thread我们用pthread_setaffinity_np， 对于process我们才用sched_setafinity.于是我仔细的看了一下。首先，sched_setaffinity的man page上写的是</p>
+<blockquote>
+<p>A thread's CPU affinity mask determines the set of CPUs on which it is eligible to run</p>
+</blockquote>
+<p>当然它也写了</p>
+<blockquote>
+<p>(If you are using the POSIX threads API, then use pthread_setaffinity_np(3) instead of sched_setaffinity().)</p>
+</blockquote>
+<p>当我们使用</p>
+<pre><code>int pthread_setaffinity_np(pthread_t thread, size_t cpusetsize, const cpu_set_t *cpuset);
+int pthread_getaffinity_np(pthread_t thread, size_t cpusetsize, cpu_set_t *cpuset);
+</code></pre>
+<p>我们传入的是pthread_t. 而当我们使用<code>sched_setaffinity</code>时，我们传进去的可以是pid from <code>getpid()</code>,也可以是tid from <code>gettid()</code>.（对于单线程的进程，pid等于tid，对于多线程的进程，每个线程有不同的tid，但会有相同的pid。）pid_t 和pthread_t是不同的，pthread_t是同一个进程中各个线程之间的标识号，对于这个进程内是唯一的，而不同进程中，每个线程返回的pthread_t可能是一样的。而gettid是用来系统内各个线程间的标识符，由于linux采用轻量级进程实现的，它其实返回的应该是pid号。 还有需要注意的就是当你给一个线程设置了亲和性然后pthread_create 其他线程，其他线程会继承当前这个线程的亲和性。不过在我的工作范围内，sched_setaffinity 已经足够，因为线程的创建是固定的，我们也需要在创建后设置亲和性，所以不必担心亲和性的继承问题。</p>
+<p>BTW: gettid() is not implemented in glibc, 所以我们需要用ssyscall去回去tid</p>
+<pre><code class="language-c">pid_t getThreadId()
+{
+    return syscall(__NR_gettid);
+}
+</code></pre>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[c++ Multithreading programming 学习(1)]]></title>
+        <id>https://wangpifu.github.io/post/c-multithreading-programming-xue-xi-1/</id>
+        <link href="https://wangpifu.github.io/post/c-multithreading-programming-xue-xi-1/">
+        </link>
+        <updated>2020-04-27T23:17:05.000Z</updated>
+        <content type="html"><![CDATA[<p>#Thread Overview<br>
+<img src="https://wangpifu.github.io/post-images/1588203959444.png" alt="" loading="lazy"><br>
+Thread 是一段独立于其他代码的，由操作系统调度的指令。它能使用process的资源，但是可以独立的被OS调用。 它像是轻量级的process，但是创建比process快。 同时thread可以直接与同一process下其他thread通信。 而process之间用到PIPE,FIFO来发送短小高频的消息，适用于两个process之间。或者用共享内存以及socket来通信。</p>
+<p>#Pthread<br>
+##Overview<br>
+在c++11以前，c++没有很好的thread库支持，一般是通过系统的thread库来实现线程相关代码。Pthread即源于posix系统。代码基于c，对于其他操作系统不具有移植性。<br>
+##使用pthread<br>
+对于posix系统，需要包含头文件<code>#include &lt;pthread.h&gt;</code> ，如果需要使用<code>semaphre</code>, 则需要<code>#include &lt;semaphore.h&gt;</code>。 在编译时，需要<code>g++ test.cpp -lpthread</code> 或者在cmake中定义<code>find_package(Threads REQUIRED)</code>。<br>
+##pthread api</p>
+<pre><code>int pthread_create(pthread_t *thread,
+              const pthread_attr_t *attr,
+              void *(*start_routine)(void*), void *arg);
+void pthread_exit(void *value_ptr);
+int pthread_cancel(pthread_t thread);
+int pthread_attr_init(pthread_attr_t *attr);
+int pthread_attr_destroy(pthread_attr_t *attr);
+</code></pre>
+<p>######Thread Creation<br>
+<code>pthread_create</code> 创建一个新的线程并运行它.它能在代码的任何处被多次调用.<br>
+<code>pthread_create</code> 的参数:<br>
+<code>thread</code>:返回新 thread 的唯一标识.<br>
+<code>attr</code>:设置 thread 的性质.NULL 为默认性质.<br>
+<code>start_routine</code>: 新 thread 运行的函数指针.<br>
+<code>arg</code>:传给 start_routine 的参数,必须强制转换成 void *.NULL 为没有参数传入.<br>
+######Thread Attributes<br>
+<code>pthread_attr_init</code> 和 <code>pthread_attr_destroy</code> 被用来初始化/销毁 thread 性质对象. 如 detached or joinable state, scheduling policy.<br>
+######Thread Binding<br>
+参见这篇文章<a href="https://wangpifu.github.io/post/cpu-affinity-qin-he-xing">cpu 亲和性</a><br>
+######Thread Termination<br>
+Thread 有多种终止方式：</p>
+<ul>
+<li>线程从它的运行中正常放回.它的工作完成.</li>
+<li>线程调用 <code>pthread_exit</code> 无论它的工作完成否.</li>
+<li>线程被另外一个线程调用<code>pthread_cance</code>来取消.</li>
+<li>整个<strong>进程</strong>都终止，如果任何线程调用了 <code>exec()</code> 或 <code>exit()</code>.</li>
+<li><code>main()</code> 函数先完成,没有调用 <code>pthread_exit</code>.</li>
+</ul>
+<p><code>void pthread_exit(void * rval_ptr);</code><br>
+函数说明：rval_ptr参数是线程结束时的返回值，可由其他函数如pthread_join()来获取。这个调用不关闭文件,在线程打开的任何文件在线程终止后将继续打开.</p>
+<ul>
+<li>如果 <code>main()</code>在它创建的 threads 之前终止,并没有显式的调用 pthread_exit(),所有创建的线程都将终止，因为<code>main()</code>结束,不再存在支持这些线程.</li>
+<li>通过<code>main()</code>在最后调用 <code>pthread_exit()</code>, <code>main()</code>将阻塞并保持存活来支持它创建的线程运行直到它们完成.</li>
+</ul>
+<p><code>int pthread_cancel(pthread_t thread);</code><br>
+函数说明：取消线程，该函数在其他线程中调用，用来强行杀死指定的线程。<br>
+我从来没用过这个函数，似乎使用情况有些tricky，参见这篇<a href="https://blog.csdn.net/fozhishuiyue/article/details/98936578">博客</a>。另外我自己写了个程序试验了一下但是一直有segment fault TODO: 查明原因，深入理解一下。</p>
+<p>######Example of pthread creationand termination<br>
+如果注释掉 <code>main()</code>中最后的 <code>pthread_exit(NULL);</code> ,那么它创建的线程将会完成不了所有的打印而被强制退出.</p>
+<pre><code class="language-c++">#include &lt;pthread.h&gt;
+#include &lt;cstdio&gt;
+#include &lt;cstdlib&gt;
+
+void *ThreadProc(void *param) {
+  int id;
+  id = *(static_cast&lt;int *&gt;(param));
+  for (int i = 0; i &lt; 10; ++i) {
+    if(id == 1 &amp;&amp; i == 8)
+    { 
+        // for pthread_t 1, it will only print to 7 and then terminate.
+        pthread_exit(NULL);
+    }
+    printf(&quot;thread %d: run %d \n&quot;, id, i);
+  }
+}
+
+int main(int argc, char *argv[]) {
+  const int kNumThreads = 4;
+  pthread_t threads[kNumThreads];
+  int thread_ids[kNumThreads];
+  for (int i = 0; i &lt; kNumThreads; ++i) {
+    thread_ids[i] = i;
+    int rt = pthread_create(&amp;threads[i], NULL, ThreadProc,
+                            static_cast&lt;void *&gt;(&amp;thread_ids[i]));
+    if (rt) {
+      printf(&quot;ERROR: pthread_create failed, rt=%d\n&quot;, rt);
+      exit(1);
+    }
+  }
+  pthread_exit(NULL);
+}
+</code></pre>
+<p>######Threads joining and detaching</p>
+<pre><code class="language-c++">int pthread_join(pthread_t thread, void **value_ptr);
+int pthread_detach(pthread_t thread);
+int pthread_attr_setdetachstate(pthread_attr_t *attr, int detachstate);
+int pthread_attr_getdetachstate(const pthread_attr_t *attr, int *detachstate);
+</code></pre>
 ]]></content>
     </entry>
 </feed>

@@ -1,0 +1,260 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>c++ Multithreading programming 学习(1) | Gridea</title>
+<link rel="shortcut icon" href="https://wangpifu.github.io/favicon.ico?v=1588216083138">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://wangpifu.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="c++ Multithreading programming 学习(1) | Gridea - Atom Feed" href="https://wangpifu.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+
+    <meta name="description" content="#Thread Overview
+
+Thread 是一段独立于其他代码的，由操作系统调度的指令。它能使用process的资源，但是可以独立的被OS调用。 它像是轻量级的process，但是创建比process快。 同时thread可以直接与..." />
+    <meta name="keywords" content="multithreading,多线程,linux,c++" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://wangpifu.github.io">
+  <img class="avatar" src="https://wangpifu.github.io/images/avatar.png?v=1588216083138" alt="">
+  </a>
+  <h1 class="site-title">
+    Gridea
+  </h1>
+  <p class="site-description">
+    温故而知新
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          博客
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          标签
+        </a>
+      
+    
+      
+        <a href="/post/about" class="menu">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              c++ Multithreading programming 学习(1)
+            </h2>
+            <div class="post-info">
+              <span>
+                2020-04-27
+              </span>
+              <span>
+                4 min read
+              </span>
+              
+                <a href="https://wangpifu.github.io/tag/mV7u4u4de/" class="post-tag">
+                  # multithreading
+                </a>
+              
+                <a href="https://wangpifu.github.io/tag/tVytL49B8e/" class="post-tag">
+                  # 多线程
+                </a>
+              
+                <a href="https://wangpifu.github.io/tag/Sw56WNWMXq/" class="post-tag">
+                  # linux
+                </a>
+              
+                <a href="https://wangpifu.github.io/tag/FuOuG11onv/" class="post-tag">
+                  # c++
+                </a>
+              
+            </div>
+            
+            <div class="post-content-wrapper">
+              <div class="post-content">
+                <p>#Thread Overview<br>
+<img src="https://wangpifu.github.io/post-images/1588203959444.png" alt="" loading="lazy"><br>
+Thread 是一段独立于其他代码的，由操作系统调度的指令。它能使用process的资源，但是可以独立的被OS调用。 它像是轻量级的process，但是创建比process快。 同时thread可以直接与同一process下其他thread通信。 而process之间用到PIPE,FIFO来发送短小高频的消息，适用于两个process之间。或者用共享内存以及socket来通信。</p>
+<p>#Pthread<br>
+##Overview<br>
+在c++11以前，c++没有很好的thread库支持，一般是通过系统的thread库来实现线程相关代码。Pthread即源于posix系统。代码基于c，对于其他操作系统不具有移植性。<br>
+##使用pthread<br>
+对于posix系统，需要包含头文件<code>#include &lt;pthread.h&gt;</code> ，如果需要使用<code>semaphre</code>, 则需要<code>#include &lt;semaphore.h&gt;</code>。 在编译时，需要<code>g++ test.cpp -lpthread</code> 或者在cmake中定义<code>find_package(Threads REQUIRED)</code>。<br>
+##pthread api</p>
+<pre><code>int pthread_create(pthread_t *thread,
+              const pthread_attr_t *attr,
+              void *(*start_routine)(void*), void *arg);
+void pthread_exit(void *value_ptr);
+int pthread_cancel(pthread_t thread);
+int pthread_attr_init(pthread_attr_t *attr);
+int pthread_attr_destroy(pthread_attr_t *attr);
+</code></pre>
+<p>######Thread Creation<br>
+<code>pthread_create</code> 创建一个新的线程并运行它.它能在代码的任何处被多次调用.<br>
+<code>pthread_create</code> 的参数:<br>
+<code>thread</code>:返回新 thread 的唯一标识.<br>
+<code>attr</code>:设置 thread 的性质.NULL 为默认性质.<br>
+<code>start_routine</code>: 新 thread 运行的函数指针.<br>
+<code>arg</code>:传给 start_routine 的参数,必须强制转换成 void *.NULL 为没有参数传入.<br>
+######Thread Attributes<br>
+<code>pthread_attr_init</code> 和 <code>pthread_attr_destroy</code> 被用来初始化/销毁 thread 性质对象. 如 detached or joinable state, scheduling policy.<br>
+######Thread Binding<br>
+参见这篇文章<a href="https://wangpifu.github.io/post/cpu-affinity-qin-he-xing">cpu 亲和性</a><br>
+######Thread Termination<br>
+Thread 有多种终止方式：</p>
+<ul>
+<li>线程从它的运行中正常放回.它的工作完成.</li>
+<li>线程调用 <code>pthread_exit</code> 无论它的工作完成否.</li>
+<li>线程被另外一个线程调用<code>pthread_cance</code>来取消.</li>
+<li>整个<strong>进程</strong>都终止，如果任何线程调用了 <code>exec()</code> 或 <code>exit()</code>.</li>
+<li><code>main()</code> 函数先完成,没有调用 <code>pthread_exit</code>.</li>
+</ul>
+<p><code>void pthread_exit(void * rval_ptr);</code><br>
+函数说明：rval_ptr参数是线程结束时的返回值，可由其他函数如pthread_join()来获取。这个调用不关闭文件,在线程打开的任何文件在线程终止后将继续打开.</p>
+<ul>
+<li>如果 <code>main()</code>在它创建的 threads 之前终止,并没有显式的调用 pthread_exit(),所有创建的线程都将终止，因为<code>main()</code>结束,不再存在支持这些线程.</li>
+<li>通过<code>main()</code>在最后调用 <code>pthread_exit()</code>, <code>main()</code>将阻塞并保持存活来支持它创建的线程运行直到它们完成.</li>
+</ul>
+<p><code>int pthread_cancel(pthread_t thread);</code><br>
+函数说明：取消线程，该函数在其他线程中调用，用来强行杀死指定的线程。<br>
+我从来没用过这个函数，似乎使用情况有些tricky，参见这篇<a href="https://blog.csdn.net/fozhishuiyue/article/details/98936578">博客</a>。另外我自己写了个程序试验了一下但是一直有segment fault TODO: 查明原因，深入理解一下。</p>
+<p>######Example of pthread creationand termination<br>
+如果注释掉 <code>main()</code>中最后的 <code>pthread_exit(NULL);</code> ,那么它创建的线程将会完成不了所有的打印而被强制退出.</p>
+<pre><code class="language-c++">#include &lt;pthread.h&gt;
+#include &lt;cstdio&gt;
+#include &lt;cstdlib&gt;
+
+void *ThreadProc(void *param) {
+  int id;
+  id = *(static_cast&lt;int *&gt;(param));
+  for (int i = 0; i &lt; 10; ++i) {
+    if(id == 1 &amp;&amp; i == 8)
+    { 
+        // for pthread_t 1, it will only print to 7 and then terminate.
+        pthread_exit(NULL);
+    }
+    printf(&quot;thread %d: run %d \n&quot;, id, i);
+  }
+}
+
+int main(int argc, char *argv[]) {
+  const int kNumThreads = 4;
+  pthread_t threads[kNumThreads];
+  int thread_ids[kNumThreads];
+  for (int i = 0; i &lt; kNumThreads; ++i) {
+    thread_ids[i] = i;
+    int rt = pthread_create(&amp;threads[i], NULL, ThreadProc,
+                            static_cast&lt;void *&gt;(&amp;thread_ids[i]));
+    if (rt) {
+      printf(&quot;ERROR: pthread_create failed, rt=%d\n&quot;, rt);
+      exit(1);
+    }
+  }
+  pthread_exit(NULL);
+}
+</code></pre>
+<p>######Threads joining and detaching</p>
+<pre><code class="language-c++">int pthread_join(pthread_t thread, void **value_ptr);
+int pthread_detach(pthread_t thread);
+int pthread_attr_setdetachstate(pthread_attr_t *attr, int detachstate);
+int pthread_attr_getdetachstate(const pthread_attr_t *attr, int *detachstate);
+</code></pre>
+
+              </div>
+              <div class="toc-container">
+                
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+
+        
+
+        <div class="site-footer">
+  Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a>
+  <a class="rss" href="https://wangpifu.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>
