@@ -3,17 +3,26 @@
     <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>c++ Multithreading programming 学习(1) | wangpifu</title>
-<link rel="shortcut icon" href="https://wangpifu.github.io/favicon.ico?v=1588218922032">
+<link rel="shortcut icon" href="https://wangpifu.github.io/favicon.ico?v=1588296033013">
 <link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
 <link rel="stylesheet" href="https://wangpifu.github.io/styles/main.css">
 <link rel="alternate" type="application/atom+xml" title="c++ Multithreading programming 学习(1) | wangpifu - Atom Feed" href="https://wangpifu.github.io/atom.xml">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
 
 
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-164999139-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
 
-    <meta name="description" content="#Thread Overview
+  gtag('config', 'UA-164999139-1');
+</script>
 
-Thread 是一段独立于其他代码的，由操作系统调度的指令。它能使用process的资源，但是可以独立的被OS调用。 它像是轻量级的process，但是创建比process快。 同时thread可以直接与..." />
+
+    <meta name="description" content="Thread Overview
+
+Thread 是一段独立于其他代码的，由操作系统调度的指令。它能使用process的资源，但是可以独立的被OS调用。 它像是轻量级的process，但是创建比process快。 同时thread可以直接与同..." />
     <meta name="keywords" content="multithreading,多线程,linux,c++" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
     <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
@@ -23,7 +32,7 @@ Thread 是一段独立于其他代码的，由操作系统调度的指令。它�
       <div class="main-content">
         <div class="site-header">
   <a href="https://wangpifu.github.io">
-  <img class="avatar" src="https://wangpifu.github.io/images/avatar.png?v=1588218922032" alt="">
+  <img class="avatar" src="https://wangpifu.github.io/images/avatar.png?v=1588296033013" alt="">
   </a>
   <h1 class="site-title">
     wangpifu
@@ -83,7 +92,7 @@ Thread 是一段独立于其他代码的，由操作系统调度的指令。它�
                 2020-04-29
               </span>
               <span>
-                4 min read
+                11 min read
               </span>
               
                 <a href="https://wangpifu.github.io/tag/mV7u4u4de/" class="post-tag">
@@ -108,15 +117,16 @@ Thread 是一段独立于其他代码的，由操作系统调度的指令。它�
             
             <div class="post-content-wrapper">
               <div class="post-content">
-                <p>#Thread Overview<br>
-<img src="https://wangpifu.github.io/post-images/1588203959444.png" alt="" loading="lazy"><br>
+                <h1 id="thread-overview">Thread Overview</h1>
+<p><img src="https://wangpifu.github.io/post-images/1588203959444.png" alt="" loading="lazy"><br>
 Thread 是一段独立于其他代码的，由操作系统调度的指令。它能使用process的资源，但是可以独立的被OS调用。 它像是轻量级的process，但是创建比process快。 同时thread可以直接与同一process下其他thread通信。 而process之间用到PIPE,FIFO来发送短小高频的消息，适用于两个process之间。或者用共享内存以及socket来通信。</p>
-<p>#Pthread<br>
-##Overview<br>
-在c++11以前，c++没有很好的thread库支持，一般是通过系统的thread库来实现线程相关代码。Pthread即源于posix系统。代码基于c，对于其他操作系统不具有移植性。<br>
-##使用pthread<br>
-对于posix系统，需要包含头文件<code>#include &lt;pthread.h&gt;</code> ，如果需要使用<code>semaphre</code>, 则需要<code>#include &lt;semaphore.h&gt;</code>。 在编译时，需要<code>g++ test.cpp -lpthread</code> 或者在cmake中定义<code>find_package(Threads REQUIRED)</code>。<br>
-##pthread api</p>
+<h2 id="pthread">Pthread</h2>
+<h3 id="overview">Overview</h3>
+<p>在c++11以前，c++没有很好的thread库支持，一般是通过系统的thread库来实现线程相关代码。Pthread即源于posix系统。代码基于c，对于其他操作系统不具有移植性。</p>
+<h3 id="使用pthread">使用pthread</h3>
+<p>对于posix系统，需要包含头文件<code>#include &lt;pthread.h&gt;</code> ，如果需要使用<code>semaphre</code>, 则需要<code>#include &lt;semaphore.h&gt;</code>。 在编译时，需要<code>g++ test.cpp -lpthread</code> 或者在cmake中定义<code>find_package(Threads REQUIRED)</code>。</p>
+<h3 id="thread-creation">Thread Creation</h3>
+<h4 id="api">API</h4>
 <pre><code>int pthread_create(pthread_t *thread,
               const pthread_attr_t *attr,
               void *(*start_routine)(void*), void *arg);
@@ -125,19 +135,18 @@ int pthread_cancel(pthread_t thread);
 int pthread_attr_init(pthread_attr_t *attr);
 int pthread_attr_destroy(pthread_attr_t *attr);
 </code></pre>
-<p>######Thread Creation<br>
-<code>pthread_create</code> 创建一个新的线程并运行它.它能在代码的任何处被多次调用.<br>
+<p><code>pthread_create</code> 创建一个新的线程并运行它.它能在代码的任何处被多次调用.<br>
 <code>pthread_create</code> 的参数:<br>
 <code>thread</code>:返回新 thread 的唯一标识.<br>
 <code>attr</code>:设置 thread 的性质.NULL 为默认性质.<br>
 <code>start_routine</code>: 新 thread 运行的函数指针.<br>
-<code>arg</code>:传给 start_routine 的参数,必须强制转换成 void *.NULL 为没有参数传入.<br>
-######Thread Attributes<br>
-<code>pthread_attr_init</code> 和 <code>pthread_attr_destroy</code> 被用来初始化/销毁 thread 性质对象. 如 detached or joinable state, scheduling policy.<br>
-######Thread Binding<br>
-参见这篇文章<a href="https://wangpifu.github.io/post/cpu-affinity-qin-he-xing">cpu 亲和性</a><br>
-######Thread Termination<br>
-Thread 有多种终止方式：</p>
+<code>arg</code>:传给 start_routine 的参数,必须强制转换成 void *.NULL 为没有参数传入.</p>
+<h4 id="thread-attributes">Thread Attributes</h4>
+<p><code>pthread_attr_init</code> 和 <code>pthread_attr_destroy</code> 被用来初始化/销毁 thread 性质对象. 如 detached or joinable state, scheduling policy.</p>
+<h4 id="thread-binding">Thread Binding</h4>
+<p>参见这篇文章<a href="https://wangpifu.github.io/post/cpu-affinity-qin-he-xing">cpu 亲和性</a></p>
+<h3 id="thread-termination">Thread Termination</h3>
+<p>Thread 有多种终止方式：</p>
 <ul>
 <li>线程从它的运行中正常放回.它的工作完成.</li>
 <li>线程调用 <code>pthread_exit</code> 无论它的工作完成否.</li>
@@ -154,8 +163,8 @@ Thread 有多种终止方式：</p>
 <p><code>int pthread_cancel(pthread_t thread);</code><br>
 函数说明：取消线程，该函数在其他线程中调用，用来强行杀死指定的线程。<br>
 我从来没用过这个函数，似乎使用情况有些tricky，参见这篇<a href="https://blog.csdn.net/fozhishuiyue/article/details/98936578">博客</a>。另外我自己写了个程序试验了一下但是一直有segment fault TODO: 查明原因，深入理解一下。</p>
-<p>######Example of pthread creationand termination<br>
-如果注释掉 <code>main()</code>中最后的 <code>pthread_exit(NULL);</code> ,那么它创建的线程将会完成不了所有的打印而被强制退出.</p>
+<h4 id="example-of-pthread-creationand-termination">Example of pthread creationand termination</h4>
+<p>如果注释掉 <code>main()</code>中最后的 <code>pthread_exit(NULL);</code> ,那么它创建的线程将会完成不了所有的打印而被强制退出.</p>
 <pre><code class="language-c++">#include &lt;pthread.h&gt;
 #include &lt;cstdio&gt;
 #include &lt;cstdlib&gt;
@@ -171,6 +180,7 @@ void *ThreadProc(void *param) {
     }
     printf(&quot;thread %d: run %d \n&quot;, id, i);
   }
+  pthread_exit(NULL);
 }
 
 int main(int argc, char *argv[]) {
@@ -189,16 +199,237 @@ int main(int argc, char *argv[]) {
   pthread_exit(NULL);
 }
 </code></pre>
-<p>######Threads joining and detaching</p>
+<h3 id="threads-joining-and-detaching">Threads joining and detaching</h3>
+<h4 id="api-2">API</h4>
 <pre><code class="language-c++">int pthread_join(pthread_t thread, void **value_ptr);
 int pthread_detach(pthread_t thread);
 int pthread_attr_setdetachstate(pthread_attr_t *attr, int detachstate);
 int pthread_attr_getdetachstate(const pthread_attr_t *attr, int *detachstate);
+//PTHREAD_CREATE_DETACHED 分离
+//PTHREAD_CREATE_JOINABLE 不分离
 </code></pre>
+<h4 id="joining">Joining</h4>
+<p><img src="https://wangpifu.github.io/post-images/1588262396632.png" alt="" loading="lazy"><br>
+joining 是用来同步不同线程的方法之一</p>
+<ul>
+<li><code>int pthread_join(pthread_t thread, void **value_ptr);</code> 将阻塞调用它的线程直到被指定的thread线程终止。</li>
+<li>调用的线程能获取目标线程终止返回的 status 如果目标线程调用 <code>pthread_exit()</code></li>
+<li>当一个线程被创建,它的属性之一是它是否可以 join.只有创建的能被 join 的线程才能被 join.如果线程线程以 detached 创建,它永远都不能被 join。</li>
+</ul>
+<h4 id="detaching">Detaching</h4>
+<ul>
+<li>pthread_detach() 可以将一个线程detach，即使它原先是以join位attribute建立的</li>
+</ul>
+<h4 id="example">Example</h4>
+<pre><code class="language-c++">#include &lt;pthread.h&gt;
+#include &lt;cstdio&gt;
+#include &lt;cstdlib&gt;
+
+void *ThreadProc(void *param) {
+  int id;
+  id = *(static_cast&lt;int *&gt;(param));
+  for (int i = 0; i &lt; 10; ++i) {
+    printf(&quot;thread %d: run %d \n&quot;, id, i);
+  }
+  pthread_exit(param);
+}
+
+int main(int argc, char *argv[]) {
+  const int kNumThreads = 4;
+  pthread_t threads[kNumThreads];
+  int thread_ids[kNumThreads];
+  pthread_attr_t attr;
+
+  pthread_attr_init(&amp;attr);
+  pthread_attr_setdetachstate(&amp;attr, PTHREAD_CREATE_JOINABLE);
+
+  for (int i = 0; i &lt; kNumThreads; ++i) {
+    thread_ids[i] = i;
+    int rt = pthread_create(&amp;threads[i], &amp;attr, ThreadProc,
+                            static_cast&lt;void *&gt;(&amp;thread_ids[i]));
+    if (rt) {
+      printf(&quot;ERROR: pthread_create failed, rt=%d\n&quot;, rt);
+      exit(1);
+    }
+  }
+  for (int i = 0; i &lt; kNumThreads; ++i) {
+    void *status;
+    int rt = pthread_join(threads[i], &amp;status);
+    if (rt) {
+      printf(&quot;ERROR: pthread_join failed, rt=%d\n&quot;, rt);
+      exit(1);
+    }
+    printf(&quot;completed join with thread %d having a status of %d\n&quot;
+           , i, *static_cast&lt;int *&gt;(status));
+  }
+  pthread_exit(NULL);
+}
+</code></pre>
+<h3 id="stack-management">Stack Management</h3>
+<h4 id="api-3">API</h4>
+<pre><code>int pthread_attr_getstacksize(const pthread_attr_t *restrict attr,
+              size_t *restrict stacksize);
+int pthread_attr_setstacksize(pthread_attr_t *attr, size_t stacksize);
+int pthread_attr_getstackaddr(const pthread_attr_t *restrict attr,
+              void **restrict stackaddr); // removed in POSIX.1-2008
+int pthread_attr_setstackaddr(pthread_attr_t *attr, void *stackaddr); 
+int pthread_attr_setstack(pthread_attr_t *attr, void *stackaddr, size_t stacksize);
+int pthread_attr_getstack(const pthread_attr_t *attr,  void **stackaddr, size_t *stacksize);
+int pthread_attr_setguardsize(pthread_attr_t *attr, size_t guardsize);
+//功能：设置线程属性中栈尾的警戒区大小
+int pthread_attr_getguardsize(pthread_attr_t *attr, size_t *guardsize);
+//功能：获取线程属性中栈尾的警戒区大小
+</code></pre>
+<p>每个线程都有各自独立的 stack, <code>pthread_attr_getstackaddr</code> 和 <code>pthread_attr_setstackaddr</code> 分别获取和设置线程的栈底地址. 在POSIX.1-2008被删除，需要使用新的api <code>pthread_attr_setstack</code>, <code>pthread_attr_getstack</code>.<code>get/setstacksize()</code>获取和设置stack的栈空间字节数。我们通过attr在<code>pthread_create()</code>传入</p>
+<h4 id="example-2">example</h4>
+<pre><code class="language-c++">#include &lt;pthread.h&gt;
+#include &lt;cstdio&gt;
+#include &lt;cstdlib&gt;
+
+pthread_attr_t attr;
+
+void *ThreadProc(void *param) {
+  int id;
+  size_t thread_stack_size;
+  id = *(static_cast&lt;int *&gt;(param));
+  pthread_attr_getstacksize(&amp;attr, &amp;thread_stack_size);
+  printf(&quot;thread %d: stack size = %d\n&quot;, id, thread_stack_size);
+  for (int i = 0; i &lt; 10; ++i) {
+    printf(&quot;thread %d: run %d \n&quot;, id, i);
+  }
+  pthread_exit(NULL);
+}
+
+int main(int argc, char *argv[]) {
+  const int kNumThreads = 4;
+  const int kThround = 1000;
+  pthread_t threads[kNumThreads];
+  int thread_ids[kNumThreads];
+  size_t stack_size;
+
+  pthread_attr_init(&amp;attr);
+  pthread_attr_getstacksize(&amp;attr, &amp;stack_size);
+  printf(&quot;Default stack size = %d\n&quot;, stack_size);
+  stack_size = sizeof(double) * kThround * kThround;
+  printf(&quot;Setting stack size = %d\n&quot;, stack_size);
+  pthread_attr_setstacksize(&amp;attr, stack_size);
+  for (int i = 0; i &lt; kNumThreads; ++i) {
+    thread_ids[i] = i;
+    int rt = pthread_create(&amp;threads[i], &amp;attr, ThreadProc,
+                            static_cast&lt;void *&gt;(&amp;thread_ids[i]));
+    if (rt) {
+      printf(&quot;ERROR: pthread_create failed, rt=%d\n&quot;, rt);
+      exit(1);
+    }
+  }
+  pthread_exit(NULL);
+  pthread_attr_destroy(&amp;attr);
+  return 0;
+}
+</code></pre>
+<h3 id="thread-attribute上文中未提到的">Thread Attribute(上文中未提到的)</h3>
+<h4 id="api-4">API</h4>
+<pre><code>typedef union
+{
+char __size[__SIZEOF_PTHREAD_ATTR_T];
+long int __align;
+}pthread_attr_t;
+
+int pthread_attr_setscope(pthread_attr_t *attr, int scope);
+//功能：设置线程属性中线程的竞争范围
+//PTHREAD_SCOPE_SYSTEM(绑定)
+//PTHREAD_SCOPE_PROCESS(非绑定)
+int pthread_attr_getscope(pthread_attr_t *attr, int *scope);
+//功能：获取线程属性中线程的竞争范围
+</code></pre>
+<p>关于绑定属性，涉及到另外一个概念：轻进程（Light Weight Process，LWP）。轻进程可以理解为内核进程，它位于用户层和内核层之间。系统对线程资源的分配和对线程的控制时通过轻进程来实现的，一个轻进程可以控制一个或多个线程。默认情况下，启动多少轻进程、哪些轻进程来控制哪些线程是由系统来控制的，这种状况即称为非绑定。绑定状况下，则顾名思义，即某个线程固定地绑在一个轻进程之上。被绑定的线程具有较高的响应速度，这是因为CPU时间片的调度是面向轻进程的，绑定的线程可以保证在需要的时候它总有一个轻进程可用。通过设置被绑定的轻进程的优先级和调度级可以使得绑定的线程满足诸如实时反应之类的要求。</p>
+<pre><code>int pthread_attr_setinheritsched(pthread_attr_t *attr, int inheritsched);
+//功能：设置线程属性中线程的调度策略来源
+//PTHREAD_INHERIT_SCHED 继承创建者
+//PTHREAD_EXPLICIT_SCHED 单独设置
+int pthread_attr_getinheritsched(pthread_attr_t *attr, int *inheritsched);
+
+int pthread_attr_setschedpolicy(pthread_attr_t *attr, int policy);
+//功能：设置线程属性中线程的调度策略
+//SCHED_FIFO 先进先出策略
+//SCHED_RR 轮转策略
+//SCHED_OTHER 缺省
+int pthread_attr_getschedpolicy(pthread_attr_t *attr, int *policy);
+//功能：获取线程属性中线程的调度策略
+
+struct sched_param {
+int sched_priority;
+}；
+int pthread_attr_setschedparam(pthread_attr_t *attr, const struct sched_param *param);
+//功能：设置线程属性中线程的调度参数（优先级别）
+//param：最高级别0
+int pthread_attr_getschedparam(pthread_attr_t *attr, struct sched_param *param);
+</code></pre>
+<p>使用方法：</p>
+<ol>
+<li>定义线程属性结构体 pthread_attr_t attr;</li>
+<li>初始化线程属性结构体 pthread_attr_init(&amp;attr);</li>
+<li>使用pthread_attr_set系列函数对结构体变量进行设置。</li>
+<li>在创建线程时（pthread_create函数的第二个参数）中使用线程属性结构变量创建线程。</li>
+</ol>
+<pre><code>pthread_t pthread_self(void);
+int pthread_equal(pthread_t t1, pthread_t t2);
+int pthread_once(pthread_once_t *once_control,
+              void (*init_routine)(void));
+pthread_once_t once_control = PTHREAD_ONCE_INIT;
+</code></pre>
+<ul>
+<li><code>pthread_self</code> 返回调用线程的唯一 thread ID.</li>
+<li><code>pthread_equal</code> 比较两个线程 ID 是否相等.</li>
+<li><code>pthread_once</code> 本函数使用初值为PTHREAD_ONCE_INIT的once_control变量保证init_routine()函数在本进程执行序列中仅执行一次。在多线程编程环境下，尽管pthread_once()调用会出现在多个线程中，init_routine()函数仅执行一次，究竟在哪个线程中执行是不定的，是由内核调度来决定。Linux Threads使用互斥锁和条件变量保证由pthread_once()指定的函数执行且仅执行一次，而once_control表示是否执行过。如果once_control的初值不是PTHREAD_ONCE_INIT（Linux Threads定义为0），pthread_once() 的行为就会不正常。在Linux中，实际&quot;一次性函数&quot;的执行状态有三种：NEVER（0）、IN_PROGRESS（1）、DONE （2），如果once初值设为1，则由于所有pthread_once()都必须等待其中一个激发&quot;已执行一次&quot;信号，因此所有pthread_once ()都会陷入永久的等待中；如果设为2，则表示该函数已执行过一次，从而所有pthread_once()都会立即返回0</li>
+</ul>
 
               </div>
               <div class="toc-container">
-                
+                <ul class="markdownIt-TOC">
+<li><a href="#thread-overview">Thread Overview</a>
+<ul>
+<li><a href="#pthread">Pthread</a>
+<ul>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#%E4%BD%BF%E7%94%A8pthread">使用pthread</a></li>
+<li><a href="#thread-creation">Thread Creation</a>
+<ul>
+<li><a href="#api">API</a></li>
+<li><a href="#thread-attributes">Thread Attributes</a></li>
+<li><a href="#thread-binding">Thread Binding</a></li>
+</ul>
+</li>
+<li><a href="#thread-termination">Thread Termination</a>
+<ul>
+<li><a href="#example-of-pthread-creationand-termination">Example of pthread creationand termination</a></li>
+</ul>
+</li>
+<li><a href="#threads-joining-and-detaching">Threads joining and detaching</a>
+<ul>
+<li><a href="#api-2">API</a></li>
+<li><a href="#joining">Joining</a></li>
+<li><a href="#detaching">Detaching</a></li>
+<li><a href="#example">Example</a></li>
+</ul>
+</li>
+<li><a href="#stack-management">Stack Management</a>
+<ul>
+<li><a href="#api-3">API</a></li>
+<li><a href="#example-2">example</a></li>
+</ul>
+</li>
+<li><a href="#thread-attribute%E4%B8%8A%E6%96%87%E4%B8%AD%E6%9C%AA%E6%8F%90%E5%88%B0%E7%9A%84">Thread Attribute(上文中未提到的)</a>
+<ul>
+<li><a href="#api-4">API</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
               </div>
             </div>
           </article>

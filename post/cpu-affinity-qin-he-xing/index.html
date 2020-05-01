@@ -3,12 +3,21 @@
     <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>cpu affinity 亲和性 | wangpifu</title>
-<link rel="shortcut icon" href="https://wangpifu.github.io/favicon.ico?v=1588218922032">
+<link rel="shortcut icon" href="https://wangpifu.github.io/favicon.ico?v=1588296033013">
 <link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
 <link rel="stylesheet" href="https://wangpifu.github.io/styles/main.css">
 <link rel="alternate" type="application/atom+xml" title="cpu affinity 亲和性 | wangpifu - Atom Feed" href="https://wangpifu.github.io/atom.xml">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
 
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-164999139-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-164999139-1');
+</script>
 
 
     <meta name="description" content="cpu affinity 就是让某个进程/线程绑定在某个cpu(core)上，使其尽量长时间的运行而不被迁移到其他core上的倾向性。 Linux kernel提供了两个api来修改或查看某个进程/线程的亲和性：
@@ -22,7 +31,7 @@ int sched_set..." />
       <div class="main-content">
         <div class="site-header">
   <a href="https://wangpifu.github.io">
-  <img class="avatar" src="https://wangpifu.github.io/images/avatar.png?v=1588218922032" alt="">
+  <img class="avatar" src="https://wangpifu.github.io/images/avatar.png?v=1588296033013" alt="">
   </a>
   <h1 class="site-title">
     wangpifu
@@ -122,7 +131,7 @@ int CPU_ISSET (int cpu, const cpu_set_t *set)
 int pthread_getaffinity_np(pthread_t thread, size_t cpusetsize, cpu_set_t *cpuset);
 </code></pre>
 <p>我们传入的是pthread_t. 而当我们使用<code>sched_setaffinity</code>时，我们传进去的可以是pid from <code>getpid()</code>,也可以是tid from <code>gettid()</code>.（对于单线程的进程，pid等于tid，对于多线程的进程，每个线程有不同的tid，但会有相同的pid。）pid_t 和pthread_t是不同的，pthread_t是同一个进程中各个线程之间的标识号，对于这个进程内是唯一的，而不同进程中，每个线程返回的pthread_t可能是一样的。而gettid是用来系统内各个线程间的标识符，由于linux采用轻量级进程实现的，它其实返回的应该是pid号。 还有需要注意的就是当你给一个线程设置了亲和性然后pthread_create 其他线程，其他线程会继承当前这个线程的亲和性。不过在我的工作范围内，sched_setaffinity 已经足够，因为线程的创建是固定的，我们也需要在创建后设置亲和性，所以不必担心亲和性的继承问题。</p>
-<p>BTW: gettid() is not implemented in glibc, 所以我们需要用ssyscall去回去tid</p>
+<p>BTW: gettid() is not implemented in glibc, 所以我们需要用syscall去获取tid</p>
 <pre><code class="language-c">pid_t getThreadId()
 {
     return syscall(__NR_gettid);
