@@ -3,7 +3,7 @@
     <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>cpu affinity 亲和性 | wangpifu</title>
-<link rel="shortcut icon" href="https://wangpifu.github.io/favicon.ico?v=1588474865319">
+<link rel="shortcut icon" href="https://wangpifu.github.io/favicon.ico?v=1589334809586">
 <link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
 <link rel="stylesheet" href="https://wangpifu.github.io/styles/main.css">
 <link rel="alternate" type="application/atom+xml" title="cpu affinity 亲和性 | wangpifu - Atom Feed" href="https://wangpifu.github.io/atom.xml">
@@ -20,9 +20,10 @@
 </script>
 
 
-    <meta name="description" content="cpu affinity 就是让某个进程/线程绑定在某个cpu(core)上，使其尽量长时间的运行而不被迁移到其他core上的倾向性。 Linux kernel提供了两个api来修改或查看某个进程/线程的亲和性：
-int sched_set..." />
-    <meta name="keywords" content="linux" />
+    <meta name="description" content="CPU Affinity
+cpu affinity 就是让某个进程/线程绑定在某个cpu(core)上，使其尽量长时间的运行而不被迁移到其他core上的倾向性。 Linux kernel提供了两个api来修改或查看某个进程/线程的亲和性：
+..." />
+    <meta name="keywords" content="concurrency,linux" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
     <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
   </head>
@@ -31,13 +32,13 @@ int sched_set..." />
       <div class="main-content">
         <div class="site-header">
   <a href="https://wangpifu.github.io">
-  <img class="avatar" src="https://wangpifu.github.io/images/avatar.png?v=1588474865319" alt="">
+  <img class="avatar" src="https://wangpifu.github.io/images/avatar.png?v=1589334809586" alt="">
   </a>
   <h1 class="site-title">
     wangpifu
   </h1>
   <p class="site-description">
-    温故而知新
+    而今迈步从头越
   </p>
   <div class="menu-container">
     
@@ -91,8 +92,12 @@ int sched_set..." />
                 2020-04-29
               </span>
               <span>
-                3 min read
+                5 min read
               </span>
+              
+                <a href="https://wangpifu.github.io/tag/flVdHa741/" class="post-tag">
+                  # concurrency
+                </a>
               
                 <a href="https://wangpifu.github.io/tag/Sw56WNWMXq/" class="post-tag">
                   # linux
@@ -104,7 +109,8 @@ int sched_set..." />
             
             <div class="post-content-wrapper">
               <div class="post-content">
-                <p>cpu affinity 就是让某个进程/线程绑定在某个cpu(core)上，使其尽量长时间的运行而不被迁移到其他core上的倾向性。 Linux kernel提供了两个api来修改或查看某个进程/线程的亲和性：<br>
+                <h2 id="cpu-affinity">CPU Affinity</h2>
+<p>cpu affinity 就是让某个进程/线程绑定在某个cpu(core)上，使其尽量长时间的运行而不被迁移到其他core上的倾向性。 Linux kernel提供了两个api来修改或查看某个进程/线程的亲和性：<br>
 <code>int sched_setaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask);</code><br>
 <code>int sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask);</code><br>
 如果pid是0，那么默认是当前thread。<br>
@@ -137,10 +143,27 @@ int pthread_getaffinity_np(pthread_t thread, size_t cpusetsize, cpu_set_t *cpuse
     return syscall(__NR_gettid);
 }
 </code></pre>
+<h2 id="hyperthreading-numa">Hyperthreading &amp; NUMA</h2>
+<p>现代cpu会有多个core，每个core可能会支持两个线程。可以通过<code>lscpu</code> 或者<code>lstopo</code> 查看。比如这张网上的图片。<br>
+<img src="https://wangpifu.github.io/post-images/1588961186982.png" alt="" loading="lazy"><br>
+在一些强大的工作站上会有不止一个scoket，比如我工作的机器有两个sockets，每个socket有8个core。如果hyperthreading(HT) enabled,那就将有32个hardware thread. 他们处在不同的numa（非统一内存访问架构）下，即某些cpu之间松散连接着甚至不共享memory and bus。那么hardware thread共享什么呢，有怎么关系到我们的程序呢？看上图，每个core内的两个threads会共享L1 和 L2 cache，同一个socket下的所有核会共享L3。 对于multi-socket机器，通常来讲每个socket有自己L3cache。对于NUMA，每个processor会访问自己的DRAM,不同processor之间通过一些通信机制来互相访问（QPI?）. 可以看到HT仅仅是在物理核心上使用了两个物理任务描述符，却没有增加实际的物理计算能力。 他的好处在于如果两个程序被调度到了同一个core，他们可以共享cache和TLB来降低任务切换开销。但是如果两个程序需要抢夺物理执行资源，那么反而会增加延时。对于低延迟交易来讲，我认为disable这个更好，因为它会损害性能增高延迟。但是对于互联网来讲，这个可以提高吞吐量，所以在互联网业务中，可以依据具体业务决定是否enable。对于不同numa来说，他们访问彼此的cache要明显该与访问自己的cache， 可以通过命令<code>numactl -H</code>查看，这给我们的启发是尽量让相关的任务处在同一个numa node下。</p>
+<h2 id="reference">Reference</h2>
+<p>https://zhuanlan.zhihu.com/p/33324549<br>
+https://zhuanlan.zhihu.com/p/33621500<br>
+https://eli.thegreenplace.net/2016/c11-threads-affinity-and-hyperthreading/</p>
 
               </div>
               <div class="toc-container">
-                
+                <ul class="markdownIt-TOC">
+<li>
+<ul>
+<li><a href="#cpu-affinity">CPU Affinity</a></li>
+<li><a href="#hyperthreading-numa">Hyperthreading &amp; NUMA</a></li>
+<li><a href="#reference">Reference</a></li>
+</ul>
+</li>
+</ul>
+
               </div>
             </div>
           </article>
@@ -157,6 +180,32 @@ int pthread_getaffinity_np(pthread_t thread, size_t cpusetsize, cpu_set_t *cpuse
           </div>
         
 
+        
+          
+            <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+<script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: 'c618ca9283439df7d7b5',
+    clientSecret: '9d9da4b14992b1b52b311e7f5a7ab89a9694b501',
+    repo: 'wangpifu.github.io',
+    owner: 'wangpifu',
+    admin: ['wangpifu'],
+    id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false  // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+          
+
+          
         
 
         <div class="site-footer">

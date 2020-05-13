@@ -3,7 +3,7 @@
     <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>c++ Multithreading programming 学习(1) | wangpifu</title>
-<link rel="shortcut icon" href="https://wangpifu.github.io/favicon.ico?v=1588474865319">
+<link rel="shortcut icon" href="https://wangpifu.github.io/favicon.ico?v=1589334809586">
 <link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
 <link rel="stylesheet" href="https://wangpifu.github.io/styles/main.css">
 <link rel="alternate" type="application/atom+xml" title="c++ Multithreading programming 学习(1) | wangpifu - Atom Feed" href="https://wangpifu.github.io/atom.xml">
@@ -32,13 +32,13 @@ Thread 是一段独立于其他代码的，由操作系统调度的指令。它�
       <div class="main-content">
         <div class="site-header">
   <a href="https://wangpifu.github.io">
-  <img class="avatar" src="https://wangpifu.github.io/images/avatar.png?v=1588474865319" alt="">
+  <img class="avatar" src="https://wangpifu.github.io/images/avatar.png?v=1589334809586" alt="">
   </a>
   <h1 class="site-title">
     wangpifu
   </h1>
   <p class="site-description">
-    温故而知新
+    而今迈步从头越
   </p>
   <div class="menu-container">
     
@@ -446,6 +446,32 @@ pthread_once_t once_control = PTHREAD_ONCE_INIT;
           </div>
         
 
+        
+          
+            <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+<script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: 'c618ca9283439df7d7b5',
+    clientSecret: '9d9da4b14992b1b52b311e7f5a7ab89a9694b501',
+    repo: 'wangpifu.github.io',
+    owner: 'wangpifu',
+    admin: ['wangpifu'],
+    id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false  // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+          
+
+          
         
 
         <div class="site-footer">

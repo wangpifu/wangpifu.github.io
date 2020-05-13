@@ -2,14 +2,440 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>https://wangpifu.github.io</id>
     <title>wangpifu</title>
-    <updated>2020-05-03T03:02:41.286Z</updated>
+    <updated>2020-05-13T01:53:44.113Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
     <link rel="alternate" href="https://wangpifu.github.io"/>
     <link rel="self" href="https://wangpifu.github.io/atom.xml"/>
-    <subtitle>温故而知新</subtitle>
+    <subtitle>而今迈步从头越</subtitle>
     <logo>https://wangpifu.github.io/images/avatar.png</logo>
     <icon>https://wangpifu.github.io/favicon.ico</icon>
     <rights>All rights reserved 2020, wangpifu</rights>
+    <entry>
+        <title type="html"><![CDATA[CMake 初探]]></title>
+        <id>https://wangpifu.github.io/post/cmake-xue-xi-ji-yi-ci-yun-wei-shi-zhan/</id>
+        <link href="https://wangpifu.github.io/post/cmake-xue-xi-ji-yi-ci-yun-wei-shi-zhan/">
+        </link>
+        <updated>2020-05-06T03:42:43.000Z</updated>
+        <content type="html"><![CDATA[<p>今天兴致勃勃地写了一些自己的底层socket库代码，用到了uriparser<code>#include &lt;uriparser/Uri.h&gt;</code>，在<code>CmakeLists.tx</code>t里写了<code>find_package(UriParser)</code>然而在跑cmake时却说找不到这个库，我一直对cmake是怎么找链接库不太了解，刚好趁这个机会研究一下。<br>
+首先我很好奇的是我以前用到了<code>boost</code>和<code>gtest</code>，都是直接<code>find_package</code>就找到了，为什么这次不行呢。原来cmake会先在自带的模块查找，这个模块路径一般是<code>/usr/share/cmake/Modules</code>。拿Gtest来说，cmake有<code>FindGtest.cmake</code>在上述路径，所以每当我们使用<code>find_package</code>时，他就会调用这个模块找到外部库。<br>
+那么对于没有自带模块的外部库要如何查找呢。我们需要自己写一个<code>Findxxx.cmake</code>，或者在网上找一找看有没有人写好。我是在网上找了一份，因为自己不会</p>
+<pre><code># Find the UriParser library
+# Defines:
+
+#  URIPARSER_INCLUDE_DIR - uriparser include directory
+#  URIPARSER_LIBRARY     - uriparser library file
+#  URIPARSER_FOUND       - TRUE if uriparser is found
+
+if (URIPARSER_INCLUDE_DIR)
+ #check cache 
+  set(URIPARSER_FIND_QUIETLY TRUE)
+endif ()
+
+if (NOT URIPARSER_INCLUDE_DIR)
+    find_path(URIPARSER_INCLUDE_DIR NAMES Uri.h PATH_SUFFIXES uriparser)
+    set(URIPARSER_INCLUDE_DIR ${URIPARSER_INCLUDE_DIR}/uriparser CACHE PATH &quot;uriparser includes&quot;)
+endif ()
+
+find_library(URIPARSER_LIBRARY NAMES uriparser)
+
+if (URIPARSER_INCLUDE_DIR AND URIPARSER_LIBRARY)
+  set(URIPARSER_FOUND TRUE)
+  set(UriParser_FOUND TRUE)
+endif ()
+
+if (URIPARSER_FOUND)
+   if (NOT URIPARSER_FIND_QUIETLY)
+      message(STATUS &quot;Found UriParser library: ${URIPARSER_LIBRARY}&quot;)
+   endif ()
+else ()
+   if (NOT URIPARSER_FIND_QUIETLY)
+      message(FATAL_ERROR &quot;Could NOT find UriParser library&quot;)
+    else ()
+      message(STATUS &quot;Could NOT find UriParser library&quot;)
+    endif ()
+endif ()
+</code></pre>
+<p>然后将这个文件放在<code>proj/cmake</code>下， 然后再CMakeLists.txt里定义</p>
+<pre><code class="language-cmake">set(CMAKE_MODULE_PATH
+     ${CMAKE_SOURCE_DIR}/cmake
+     ${CMAKE_MODULE_PATH})
+</code></pre>
+<p>在需要使用uriparser的子项目CMakeLists.txt中定义<code>target_link_libraries(subproj PUBLIC ${URIPARSER_INCLUDE_DIR})</code>即可。</p>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[c++ Multithreading programming 学习(4)]]></title>
+        <id>https://wangpifu.github.io/post/c/</id>
+        <link href="https://wangpifu.github.io/post/c/">
+        </link>
+        <updated>2020-05-03T03:25:43.000Z</updated>
+        <content type="html"><![CDATA[<p>先放一张c++ 特性在不同版本的线路图：<br>
+<img src="https://wangpifu.github.io/post-images/1588735714078.png" alt="" loading="lazy"></p>
+<h2 id="线程创建">线程创建</h2>
+<p>构造一个<code>thread</code>对象，可以传入参数，这些参数are either moved or copied by value. 如果我们要传入一个引用，需要<code>std::ref</code>。 新的线程创建之后即有可能被执行，至于是当前线程下一条语句先执行还是新线程先执行取决于操作系统的调度策略。</p>
+<pre><code class="language-c++">void f1(int n)
+{
+    for (int i = 0; i &lt; 5; ++i) {
+        std::cout &lt;&lt; &quot;Thread 1 executing\n&quot;;
+        ++n;
+        std::cout &lt;&lt; n &lt;&lt; std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+}
+int main()
+{
+    int n = 5
+    std::thread t2(f1, n + 1); // pass by value
+    t2.join();
+    std::cout &lt;&lt; n &lt;&lt; std::endl;
+}
+</code></pre>
+<h2 id="join-detach">join &amp; detach</h2>
+<p><code>join</code>是等待线程完成执行，在等待过程中会阻塞当前<code>*this</code> 线程执行。  <code>detach</code>是将线程分离出去独自完成，被分配给分离线程的资源会在这个线程执行完后自动释放。我们需要在thread对象析构前决定是将它<code>join</code>还是<code>detach</code>，否则thread在析构时叫调用<code>std::terminate()</code>并导致进程异常退出. <code>joinable()</code>用来检测线程是否是活跃的线程，是则返回<code>true</code>，如果一个线程已经执行完毕但是还没有被joined，调用<code>joinable</code>也会返回<code>true</code>。</p>
+<h2 id="线程管理">线程管理</h2>
+<p><code>std::this_thread::get_id()</code> 返回当前线程id<br>
+<code>std::this_thread::yeild()</code> 让出处理器，让其他线程可以被调用。比如说busy wait时让出。<br>
+<code>std::this_thread::sleep_for()</code> 使当前线程停止一段时间。<br>
+<code>std::this_thread::sleep_until()</code> 使当前线程停止到指定时间。<br>
+<code>once_flag()</code> 和<code>call_once(once_flag&amp; flag, Callable&amp;&amp; f, Args&amp;&amp;... args)</code> 即便在多线程concurrent情况下，确保f只被call了一次。<br>
+对于<code>get_id()</code>来说，这里返回的应该是底层所对应的thread id。 我们用<code>native_handle()</code> 来看一下， native_handle() 可以让我们直接用底层库(POSIX on Linux or Windows API on Windows)来操作线程。</p>
+<pre><code class="language-c++">#include &lt;iostream&gt;
+#include &lt;pthread.h&gt;
+#include &lt;thread&gt;
+#include &lt;mutex&gt;
+int main(int argc, const char** argv) {
+  std::mutex iomutex;
+  std::thread t = std::thread([&amp;iomutex] {
+    {
+      std::lock_guard&lt;std::mutex&gt; iolock(iomutex);
+      std::cout &lt;&lt; &quot;Thread: my id = &quot; &lt;&lt; std::this_thread::get_id() &lt;&lt; &quot;\n&quot;
+                &lt;&lt; &quot;        my pthread id = &quot; &lt;&lt; pthread_self() &lt;&lt; &quot;\n&quot;;
+    }
+  });
+
+  {
+    std::lock_guard&lt;std::mutex&gt; iolock(iomutex);
+    std::cout &lt;&lt; &quot;Launched t: id = &quot; &lt;&lt; t.get_id() &lt;&lt; &quot;\n&quot;
+              &lt;&lt; &quot;            native_handle = &quot; &lt;&lt; t.native_handle() &lt;&lt; &quot;\n&quot;;
+  }
+
+  t.join();
+  return 0;
+}
+</code></pre>
+<p>这个程序打印出的是</p>
+<pre><code>Launched t: id = 139958647310080
+            native_handle = 139958647310080        
+Thread: my id = 139958647310080
+            my pthread id = 139958647310080
+</code></pre>
+<p>可以看到，在POSIX平台上，<code>native_handle()</code>所拿到的id就是<code>pthread_self()</code> 返回的<code>pthread_t</code>(注意：不是<code>pid_t</code>!!)，而<code>get_id</code>()和这个值相同。那么知道了id有什么用呢？我们可以根据thread id来设置cpu affinity。尽管我们可以通过在命令行输入 <code>taskset -c $cpuid ./program</code>来限制我们想在哪些cpu上运行程序，但是我们有时更希望可以在程序内部设定。这时我们就需要用到<code>pthread_setaffinity_np</code>了，注意这里我们不能使用<a href="https://wangpifu.github.io/post/cpu-affinity-qin-he-xing/">这篇博客</a>提到的<code>sched_setaffinity</code>因为<code>native_handle()</code>返回的是<code>pthread_t</code>而不是<code>pid_t</code>。</p>
+<pre><code class="language-c++">int main(int argc, const char** argv) {
+  constexpr unsigned num_threads = 4;
+  // A mutex ensures orderly access to std::cout from multiple threads.
+  std::mutex iomutex;
+  std::vector&lt;std::thread&gt; threads(num_threads);
+  for (unsigned i = 0; i &lt; num_threads; ++i) {
+    threads[i] = std::thread([&amp;iomutex, i] {
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+      while (1) {
+        {
+          // Use a lexical scope and lock_guard to safely lock the mutex only
+          // for the duration of std::cout usage.
+          std::lock_guard&lt;std::mutex&gt; iolock(iomutex);
+          std::cout &lt;&lt; &quot;Thread #&quot; &lt;&lt; i &lt;&lt; &quot;: on CPU &quot; &lt;&lt; sched_getcpu() &lt;&lt; &quot;\n&quot;;
+        }
+
+        // Simulate important work done by the tread by sleeping for a bit...
+        std::this_thread::sleep_for(std::chrono::milliseconds(900));
+      }
+    });
+
+    // Create a cpu_set_t object representing a set of CPUs. Clear it and mark
+    // only CPU i as set.
+    cpu_set_t cpuset;
+    CPU_ZERO(&amp;cpuset);
+    CPU_SET(i, &amp;cpuset);
+    int rc = pthread_setaffinity_np(threads[i].native_handle(),
+                                    sizeof(cpu_set_t), &amp;cpuset);
+    if (rc != 0) {
+      std::cerr &lt;&lt; &quot;Error calling pthread_setaffinity_np: &quot; &lt;&lt; rc &lt;&lt; &quot;\n&quot;;
+    }
+  }
+
+  for (auto&amp; t : threads) {
+    t.join();
+  }
+  return 0;
+}
+</code></pre>
+<h2 id="mutex">mutex</h2>
+<p><code>mutex</code>	C++11	提供基本互斥设施<br>
+<code>timed_mutex</code>	C++11	提供互斥设施，带有超时功能<br>
+<code>recursive_mutex</code>	C++11	提供能被同一线程递归锁定的互斥设施<br>
+<code>recursive_timed_mutex</code>	C++11	提供能被同一线程递归锁定的互斥设施，带有超时功能<br>
+<code>shared_timed_mutex</code>	C++14	提供共享互斥设施并带有超时功能<br>
+<code>shared_mutex</code>	C++17	提供共享互斥设施<br>
+对于上面的锁，有下列方法可以操作<br>
+<code>lock()</code>	锁定mutex，如果mutex不可用，则当前线程阻塞<br>
+<code>try_lock()</code>	尝试锁定mutex，如果mutx不可用，直接返回<br>
+<code>unlock()</code>	解锁mutex<br>
+上面不同类型的锁在三个方面对基础的mutex进行了拓展</p>
+<ul>
+<li>超时：<code>timed_mutex</code>，<code>recursive_timed_mutex</code>，<code>shared_timed_mutex</code>的名称都带有timed，这意味着它们都支持超时功能。它们都提供了<code>try_lock_for</code>和<code>try_lock_until</code>方法，这两个方法分别可以指定超时的时间长度和时间点。如果在超时的时间范围内没有能获取到锁，则直接返回，不再继续等待。</li>
+<li>可重入：<code>recursive_mutex</code>和<code>recursive_timed_mutex</code>的名称都带有recursive。可重入或者叫做可递归，是指在同一个线程中，同一把锁可以锁定多次。这就避免了一些不必要的死锁。</li>
+<li>共享：<code>shared_timed_mutex</code>和<code>shared_mutex</code>提供了共享功能。对于这类互斥体，实际上是提供了两把锁：一把是共享锁，一把是互斥锁。一旦某个线程获取了互斥锁，任何其他线程都无法再获取互斥锁和共享锁；但是如果有某个线程获取到了共享锁，其他线程无法再获取到互斥锁，但是还有获取到共享锁。这里互斥锁的使用和其他的互斥体接口和功能一样。而共享锁可以同时被多个线程同时获取到（使用共享锁的接口见下面的表格）。共享锁通常用在读者写者模型上。<br>
+使用共享锁的接口如下：<br>
+<code>lock_shared</code>	获取互斥体的共享锁，如果无法获取则阻塞<br>
+<code>try_lock_shared</code>	尝试获取共享锁，如果不可用，直接返回<br>
+<code>unlock_shared</code>	解锁共享锁<br>
+一个示例程序：</li>
+</ul>
+<pre><code class="language-c++">
+void concurrent_worker(int min, int max) {
+  double tmp_sum = 0;
+  for (int i = min; i &lt;= max; i++) {
+    tmp_sum += sqrt(i); // ①
+  }
+  exclusive.lock(); // ②
+  sum += tmp_sum;
+  exclusive.unlock();
+}
+void concurrent_task(int min, int max) {
+  auto start_time = chrono::steady_clock::now();
+
+  unsigned concurrent_count = thread::hardware_concurrency();
+  cout &lt;&lt; &quot;hardware_concurrency: &quot; &lt;&lt; concurrent_count &lt;&lt; endl;
+  vector&lt;thread&gt; threads;
+  min = 0;
+  sum = 0;
+  for (int t = 0; t &lt; concurrent_count; t++) {
+    int range = max / concurrent_count * (t + 1);
+    threads.push_back(thread(concurrent_worker, min, range)); // ③
+    min = range + 1;
+  }
+  for (int i = 0; i &lt; threads.size(); i++) {
+    threads[i].join();
+  }
+
+  auto end_time = chrono::steady_clock::now();
+  auto ms = chrono::duration_cast&lt;chrono::milliseconds&gt;(end_time - start_time).count();
+  cout &lt;&lt; &quot;Concurrent task finish, &quot; &lt;&lt; ms &lt;&lt; &quot; ms consumed, Result: &quot; &lt;&lt; sum &lt;&lt; endl;
+}
+</code></pre>
+<p>我们用锁的粒度（granularity）来描述锁的范围。细粒度（fine-grained）是指锁保护较小的范围，粗粒度（coarse-grained）是指锁保护较大的范围。出于性能的考虑，我们应该保证锁的粒度尽可能的细。并且，不应该在获取锁的范围内执行耗时的操作，例如执行IO。如果是耗时的运算，也应该尽可能的移到锁的外面。如上代码，如果在for loop里对每次计算都加锁，那么执行时间反而会大幅增加。</p>
+<p>如过我们有多个锁，要求每个task都必须锁上全部才能执行，那就有可能陷入死锁。C++ 11标准中为我们提供了一些工具来避免因为多把锁而导致的死锁。我们只要直接调用这些接口就可以了。下面提到的两个函数，它们都支持传入多个Lockable对象。<br>
+<code>template &lt;class Mutex1, class Mutex2, class... Mutexes&gt; void lock (Mutex1&amp; a, Mutex2&amp; b, Mutexes&amp;... cde);</code><br>
+<code>template &lt;class Mutex1, class Mutex2, class... Mutexes&gt; int try_lock (Mutex1&amp; a, Mutex2&amp; b, Mutexes&amp;... cde);</code><br>
+我们同时来获取多把锁，标准库的实现保证了不会发生死锁。</p>
+<h2 id="mutex-管理">Mutex 管理</h2>
+<table>
+<thead>
+<tr>
+<th>API</th>
+<th>C++标准</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lock_guard</code></td>
+<td>C++11</td>
+<td>实现严格基于作用域的互斥体所有权包装器</td>
+</tr>
+<tr>
+<td><code>unique_lock</code></td>
+<td>C++11</td>
+<td>实现可移动的互斥体所有权包装器</td>
+</tr>
+<tr>
+<td><code>shared_lock</code></td>
+<td>C++14</td>
+<td>实现可移动的共享互斥体所有权封装器</td>
+</tr>
+<tr>
+<td><code>scoped_lock</code></td>
+<td>C++17</td>
+<td>用于多个互斥体的免死锁 RAII 封装器</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>锁定策略</th>
+<th>C++标准</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>defer_lock</code></td>
+<td>C++11</td>
+<td>类型为 defer_lock_t，不获得互斥的所有权</td>
+</tr>
+<tr>
+<td><code>try_to_lock</code></td>
+<td>C++11</td>
+<td>类型为try_to_lock_t，尝试获得互斥的所有权而不阻塞</td>
+</tr>
+<tr>
+<td><code>adopt_lock</code></td>
+<td>C++11</td>
+<td>类型为adopt_lock_t，假设调用方已拥有互斥的所有权</td>
+</tr>
+</tbody>
+</table>
+<p>如上一节所说，为避免死锁，我们需要同时把所有的锁锁住。假设现在我们处在用一个账户给另一个账户转钱的情境中，我们需要每个账户都有自己的锁，在转钱时，要同时锁住两个账户的锁。</p>
+<pre><code class="language-c++">lock(*accountA-&gt;getLock(), *accountB-&gt;getLock());
+lock_guard lockA(*accountA-&gt;getLock(), adopt_lock);
+lock_guard lockB(*accountB-&gt;getLock(), adopt_lock);
+</code></pre>
+<p>如果使用unique_lock这三行代码还有一种等价的写法：</p>
+<pre><code class="language-c++">unique_lock lockA(*accountA-&gt;getLock(), defer_lock);
+unique_lock lockB(*accountB-&gt;getLock(), defer_lock);
+lock(*accountA-&gt;getLock(), *accountB-&gt;getLock());
+</code></pre>
+<p>注意这里lock方法的调用位置。这里先定义<code>unique_lock</code>指定了<code>defer_lock</code>，因此实际没有锁定互斥体，而是到第三行才进行锁定。<br>
+最后，借助scoped_lock，我们可以将三行代码合成一行，这种写法也是等价的。<br>
+<code>scoped_lock lockAll(*accountA-&gt;getLock(), *accountB-&gt;getLock());</code><br>
+<code>scoped_lock</code>会在其生命周期范围内锁定互斥体，销毁的时候解锁。同时，它可以锁定多个互斥体，并且避免死锁。</p>
+<h2 id="condition-varible">Condition Varible</h2>
+<p>Condition variable 通常和一个时间或变量联系到一起，通常来说，一个线程会</p>
+<ul>
+<li>改变变量然后通知其他线程</li>
+<li>或者等待某个变量满足条件</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>API</th>
+<th>C++标准</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>condition_variable</td>
+<td>C++ 11</td>
+<td>提供与 std::unique_lock 关联的条件变量</td>
+</tr>
+<tr>
+<td>condition_variable_any</td>
+<td>C++ 11</td>
+<td>提供与任何锁类型关联的条件变量</td>
+</tr>
+<tr>
+<td>notify_all_at_thread_exit</td>
+<td>C++ 11</td>
+<td>安排到在此线程完全结束时对 notify_all 的调用</td>
+</tr>
+<tr>
+<td>cv_status</td>
+<td>C++ 11</td>
+<td>列出条件变量上定时等待的可能结果</td>
+</tr>
+</tbody>
+</table>
+<h3 id="一个简单例子">一个简单例子</h3>
+<pre><code class="language-c++">#include &lt;condition_variable&gt;
+#include &lt;iostream&gt;
+#include &lt;thread&gt;
+
+std::mutex mutex_;
+std::condition_variable condVar; 
+bool dataReady{false};
+
+void waitingForWork(){
+    std::cout &lt;&lt; &quot;Waiting &quot; &lt;&lt; std::endl;
+    std::unique_lock&lt;std::mutex&gt; lck(mutex_);
+    condVar.wait(lck, []{ return dataReady; });   // (4)
+    std::cout &lt;&lt; &quot;Running &quot; &lt;&lt; std::endl;
+}
+
+void setDataReady(){
+    {
+        std::lock_guard&lt;std::mutex&gt; lck(mutex_);
+        dataReady = true;
+    }
+    std::cout &lt;&lt; &quot;Data prepared&quot; &lt;&lt; std::endl;
+    condVar.notify_one();                        // (3)
+}
+
+int main(){
+  std::cout &lt;&lt; std::endl;
+  std::thread t1(waitingForWork);               // (1)
+  std::thread t2(setDataReady);                 // (2)
+  t1.join();
+  t2.join();
+  std::cout &lt;&lt; std::endl;
+}
+</code></pre>
+<p>上面的程序有两个thread， 一个<code>setDataReady</code>【2】，另一个<code>waitingForWork</code>【1】。t2通过<code>lock_guard</code>上锁然后改变dataReady,通过<code>notify_one()</code>【3】通知等待这个条件变量<code>condVar</code>的另外一条线程。 线程t1通过条件变量进行等待，他会通过pred(即那个lambda表达式)来判断条件是否满足，如果满足会继续。如果<strong>不满足就解锁锁，然后当前线程陷入等待</strong>。这样其他线程才能获得锁。这里我想讨论一下<code>notify_one()</code> 和 <code>notify_all()</code>的区别，如果我没记错，他们在linux下分别对应<code>pthread_cond_signal</code>和<code>pthread_cond_broadcast</code>。一个是唤醒至少一个阻塞在当前条件变量的线程，如果有不止一个线程在等待当前条件变量，调度策略会决定哪一个线程将结束阻塞；另外一个是唤醒所有的阻塞在当前条件变量的线程，这些线程需要去竞争锁。看上去<code>notify_all()</code>是<code>notify_one()</code>的超集，但是我们需要考虑具体的业务场景，如果只需要众多线程中的一个去处理，那实在没有必要去<code>notify_all()</code>.</p>
+<h4 id="运行结果">运行结果</h4>
+<pre><code>Waiting
+Data prepared      
+Running
+</code></pre>
+<p>为什么我们需要在【4】有一个pred而不是直接去等待这个条件变量呢，在此之前，我们先介绍两种现象，一种是lost wakeup, 另外一种是spurious wakeup。 前者是指在接受线程进入等待状态前，发送线程就已经发送了通知，后果就是这个通知丢了，接受线程会永远等待下去。后者是指没有通知发送，但是还是有接受线程醒来。而pred就是为了避免这两种现象。</p>
+<p>在上面的例子里，线程t1会先锁住mutex，然后去查看pred <code>[]{return dataReady;}</code>，如果pred返回<code>true</code>那么线程继续工作，返回<code>false</code>那么<code>condVar.wait()</code>解锁mutex，然后进入等待/阻塞状态。当condVar处于等待状态时，收到一个通知，他会从从阻塞中恢复并获取mutex锁，然后检查pred，如果pred是<code>true</code>则继续工作，<code>false</code>那么<code>condVar.wait()</code>解锁mutex，然后进入等待/阻塞状态. 如果去掉pred，那么我们可能会陷入死锁</p>
+<pre><code>Data prepared      
+Waiting
+</code></pre>
+<p>这是因为t1还没有进入等待状态时，t2就已经发送了通知，所以t1会永远等下去。 而加了pred，它对应</p>
+<pre><code class="language-c++">while (!pred()) {
+    wait(lock);
+}
+</code></pre>
+<p>这样不仅避免了lost wakeup，也解决了spurious wakeup。当然，对于一些复杂情况，比如A则执行actionA,B则执行actionB,用没有pred的wait()会有更好的性能。这也是为社么cpp有不含pred的重载<br>
+e.g.</p>
+<pre><code class="language-c++">cond.wait(lock, []{return (A || B);});
+if(A) {
+    actionA();
+}
+else {
+    actionB();
+}
+</code></pre>
+<p>需要检测条件两次,而</p>
+<pre><code class="language-c++">while(true)
+{
+    if(A) {
+         actionA();
+         break;
+    }
+    else if(B) {
+         actionB();
+         break;
+    }
+    cond.wait(lock);
+}
+</code></pre>
+<p>对于每种情况只检测一次。</p>
+<h2 id="reference">Reference</h2>
+<ul>
+<li>https://eli.thegreenplace.net/2016/c11-threads-affinity-and-hyperthreading/</li>
+<li>https://paul.pub/cpp-concurrency/</li>
+<li>https://www.modernescpp.com/index.php/c-core-guidelines-be-aware-of-the-traps-of-condition-variables</li>
+</ul>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[c++ Multithreading programming 学习(3)]]></title>
+        <id>https://wangpifu.github.io/post/c-multithreading-programming-xue-xi-3/</id>
+        <link href="https://wangpifu.github.io/post/c-multithreading-programming-xue-xi-3/">
+        </link>
+        <updated>2020-04-29T22:04:33.000Z</updated>
+        <content type="html"><![CDATA[<p>继上一篇介绍完pthead，本来想接着学习c++的thread库，但又有点犯懒，感觉自己封装一下pthread就好，因为我的业余开发环境是linux，而且c++版本还停留在c++11（很多人诟病c++11 的thread库），所以只要封装出thread, mutex, condition_variable和lock_guard (RAII. acquire resource at initialization and release at destruction) 那应该就够我自己用了。但是考虑到公司早已转到c++17, 我还是学习一下。不过在这一节，我先附上一些对我以前一些疑问的解答，在下一节再接着写 <code>&lt;thread&gt;</code>库。</p>
+<blockquote>
+<p>作者：Gomo Psivarh<br>
+链接：https://www.zhihu.com/question/31459750/answer/52069135<br>
+来源：知乎<br>
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。<br>
+C/C++多线程编程中不要使用volatile。（注：这里的意思指的是指望volatile解决多线程竞争问题是有很大风险的，除非所用的环境系统不可靠才会为了保险加上volatile，或者是从极限效率考虑来实现很底层的接口。这要求编写者对程序逻辑走向很清楚才行，不然就会出错）C++11标准中明确指出解决多线程的数据竞争问题应该使用原子操作或者互斥锁。C和C++中的volatile并不是用来解决多线程竞争问题的，而是用来修饰一些因为程序不可控因素导致变化的变量，比如访问底层硬件设备的变量，以提醒编译器不要对该变量的访问擅自进行优化。多线程场景下可以参考《Programming with POSIX threads》的作者Dave Butenhof对Why don't I need to declare shared variables VOLATILE?这个问题的解释：comp.programming.threads FAQ简单的来说，对访问共享数据的代码块加锁，已经足够保证数据访问的同步性，再加volatile完全是多此一举。如果光对共享变量使用volatile修饰而在可能存在竞争的操作中不加锁或使用原子操作对解决多线程竞争没有任何卵用，因为volatile并不能保证操作的原子性，在读取、写入变量的过程中仍然可能被其他线程打断导致意外结果发生。</p>
+</blockquote>
+]]></content>
+    </entry>
     <entry>
         <title type="html"><![CDATA[c++ Multithreading programming 学习(2)]]></title>
         <id>https://wangpifu.github.io/post/c-multithreading-programming-xue-xi-2/</id>
@@ -402,7 +828,8 @@ int main() {
         <link href="https://wangpifu.github.io/post/cpu-affinity-qin-he-xing/">
         </link>
         <updated>2020-04-29T12:49:24.000Z</updated>
-        <content type="html"><![CDATA[<p>cpu affinity 就是让某个进程/线程绑定在某个cpu(core)上，使其尽量长时间的运行而不被迁移到其他core上的倾向性。 Linux kernel提供了两个api来修改或查看某个进程/线程的亲和性：<br>
+        <content type="html"><![CDATA[<h2 id="cpu-affinity">CPU Affinity</h2>
+<p>cpu affinity 就是让某个进程/线程绑定在某个cpu(core)上，使其尽量长时间的运行而不被迁移到其他core上的倾向性。 Linux kernel提供了两个api来修改或查看某个进程/线程的亲和性：<br>
 <code>int sched_setaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask);</code><br>
 <code>int sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask);</code><br>
 如果pid是0，那么默认是当前thread。<br>
@@ -435,6 +862,14 @@ int pthread_getaffinity_np(pthread_t thread, size_t cpusetsize, cpu_set_t *cpuse
     return syscall(__NR_gettid);
 }
 </code></pre>
+<h2 id="hyperthreading-numa">Hyperthreading &amp; NUMA</h2>
+<p>现代cpu会有多个core，每个core可能会支持两个线程。可以通过<code>lscpu</code> 或者<code>lstopo</code> 查看。比如这张网上的图片。<br>
+<img src="https://wangpifu.github.io/post-images/1588961186982.png" alt="" loading="lazy"><br>
+在一些强大的工作站上会有不止一个scoket，比如我工作的机器有两个sockets，每个socket有8个core。如果hyperthreading(HT) enabled,那就将有32个hardware thread. 他们处在不同的numa（非统一内存访问架构）下，即某些cpu之间松散连接着甚至不共享memory and bus。那么hardware thread共享什么呢，有怎么关系到我们的程序呢？看上图，每个core内的两个threads会共享L1 和 L2 cache，同一个socket下的所有核会共享L3。 对于multi-socket机器，通常来讲每个socket有自己L3cache。对于NUMA，每个processor会访问自己的DRAM,不同processor之间通过一些通信机制来互相访问（QPI?）. 可以看到HT仅仅是在物理核心上使用了两个物理任务描述符，却没有增加实际的物理计算能力。 他的好处在于如果两个程序被调度到了同一个core，他们可以共享cache和TLB来降低任务切换开销。但是如果两个程序需要抢夺物理执行资源，那么反而会增加延时。对于低延迟交易来讲，我认为disable这个更好，因为它会损害性能增高延迟。但是对于互联网来讲，这个可以提高吞吐量，所以在互联网业务中，可以依据具体业务决定是否enable。对于不同numa来说，他们访问彼此的cache要明显该与访问自己的cache， 可以通过命令<code>numactl -H</code>查看，这给我们的启发是尽量让相关的任务处在同一个numa node下。</p>
+<h2 id="reference">Reference</h2>
+<p>https://zhuanlan.zhihu.com/p/33324549<br>
+https://zhuanlan.zhihu.com/p/33621500<br>
+https://eli.thegreenplace.net/2016/c11-threads-affinity-and-hyperthreading/</p>
 ]]></content>
     </entry>
     <entry>

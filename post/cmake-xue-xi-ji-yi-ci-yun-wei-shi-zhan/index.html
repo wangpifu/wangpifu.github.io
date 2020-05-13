@@ -2,11 +2,11 @@
   <head>
     <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>第一篇博客 | wangpifu</title>
+<title>CMake 初探 | wangpifu</title>
 <link rel="shortcut icon" href="https://wangpifu.github.io/favicon.ico?v=1589334809586">
 <link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
 <link rel="stylesheet" href="https://wangpifu.github.io/styles/main.css">
-<link rel="alternate" type="application/atom+xml" title="第一篇博客 | wangpifu - Atom Feed" href="https://wangpifu.github.io/atom.xml">
+<link rel="alternate" type="application/atom+xml" title="CMake 初探 | wangpifu - Atom Feed" href="https://wangpifu.github.io/atom.xml">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
 
 
@@ -20,8 +20,8 @@
 </script>
 
 
-    <meta name="description" content="这是一篇建立在github pages，用Gridea构建管理的私人博客站点。目前来看Gridea是最方便的搭建管理软件，避免了安装nodejs 或者 ruby。 这对于Windows系统非常方便。坦白来讲，我并不希望在我的Windows ..." />
-    <meta name="keywords" content="" />
+    <meta name="description" content="今天兴致勃勃地写了一些自己的底层socket库代码，用到了uriparser#include &lt;uriparser/Uri.h&gt;，在CmakeLists.txt里写了find_package(UriParser)然而在跑cmak..." />
+    <meta name="keywords" content="cmake,devops" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
     <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
   </head>
@@ -83,26 +83,75 @@
         <div class="post-detail">
           <article class="post">
             <h2 class="post-title">
-              第一篇博客
+              CMake 初探
             </h2>
             <div class="post-info">
               <span>
-                2020-04-29
+                2020-05-05
               </span>
               <span>
                 2 min read
               </span>
               
+                <a href="https://wangpifu.github.io/tag/xP_O-A76v/" class="post-tag">
+                  # cmake
+                </a>
+              
+                <a href="https://wangpifu.github.io/tag/8QWwVnonlJ/" class="post-tag">
+                  # devops
+                </a>
+              
             </div>
             
-              <img class="post-feature-image" src="https://wangpifu.github.io/post-images/first-blog.jpg" alt="">
+              <img class="post-feature-image" src="https://wangpifu.github.io/post-images/cmake-xue-xi-ji-yi-ci-yun-wei-shi-zhan.jpg" alt="">
             
             <div class="post-content-wrapper">
               <div class="post-content">
-                <p>这是一篇建立在github pages，用Gridea构建管理的私人博客站点。目前来看Gridea是最方便的搭建管理软件，避免了安装nodejs 或者 ruby。 这对于Windows系统非常方便。坦白来讲，我并不希望在我的Windows box上安装任何和技术开发相关的软件，因为他们的使用频率很低，最终会被我遗忘在漫长的时光里。而我的开发机器（based on linux），我又希望它能只承载和开发相关的事务。另外，Gridea看起来更加直观与人性化，避免了许多与写作不相关的操作。希望Gridea可以一直被维护下去，感谢Gridea。cnblog本来是我的第一选择，但是需要手机号注册。CSDN则有太多的广告。知乎的话，我更倾向于发布仔细审视后的文章。这个站点则会更随意一些，有些想法我可以先记载下来，在日后慢慢的更改完善。</p>
-<p>写博客的动力来自于一次失败的面试。我意识到很多技术的积累不能光靠工作，以及需要了解平时工作下的更深入的东西。人必须要不断地走出舒适圈，去接触自己不熟悉的东西，再能慢慢变得全能起来。我是一个不喜欢走在科技前端的人，平时更倾向于利用纸笔做笔记，但是现在意识到对于代码来讲，博客可能是个更合适的地方。对于刚开始的几篇文章，发布的频率可能比较高，内容可能不够精细，因为我希望能提纲挈领地把一些我在脑海中总结过的知识转移到这个站点上来，会在随后的日子里慢慢打磨。另外，我此时迫不及待地希望我能把一些需要学习的知识点电子化的记录下来，这也会导致初期一些文章显得杂乱。</p>
-<p>希望明天会更好。<br>
---20200429 阴天 纽约</p>
+                <p>今天兴致勃勃地写了一些自己的底层socket库代码，用到了uriparser<code>#include &lt;uriparser/Uri.h&gt;</code>，在<code>CmakeLists.tx</code>t里写了<code>find_package(UriParser)</code>然而在跑cmake时却说找不到这个库，我一直对cmake是怎么找链接库不太了解，刚好趁这个机会研究一下。<br>
+首先我很好奇的是我以前用到了<code>boost</code>和<code>gtest</code>，都是直接<code>find_package</code>就找到了，为什么这次不行呢。原来cmake会先在自带的模块查找，这个模块路径一般是<code>/usr/share/cmake/Modules</code>。拿Gtest来说，cmake有<code>FindGtest.cmake</code>在上述路径，所以每当我们使用<code>find_package</code>时，他就会调用这个模块找到外部库。<br>
+那么对于没有自带模块的外部库要如何查找呢。我们需要自己写一个<code>Findxxx.cmake</code>，或者在网上找一找看有没有人写好。我是在网上找了一份，因为自己不会</p>
+<pre><code># Find the UriParser library
+# Defines:
+
+#  URIPARSER_INCLUDE_DIR - uriparser include directory
+#  URIPARSER_LIBRARY     - uriparser library file
+#  URIPARSER_FOUND       - TRUE if uriparser is found
+
+if (URIPARSER_INCLUDE_DIR)
+ #check cache 
+  set(URIPARSER_FIND_QUIETLY TRUE)
+endif ()
+
+if (NOT URIPARSER_INCLUDE_DIR)
+    find_path(URIPARSER_INCLUDE_DIR NAMES Uri.h PATH_SUFFIXES uriparser)
+    set(URIPARSER_INCLUDE_DIR ${URIPARSER_INCLUDE_DIR}/uriparser CACHE PATH &quot;uriparser includes&quot;)
+endif ()
+
+find_library(URIPARSER_LIBRARY NAMES uriparser)
+
+if (URIPARSER_INCLUDE_DIR AND URIPARSER_LIBRARY)
+  set(URIPARSER_FOUND TRUE)
+  set(UriParser_FOUND TRUE)
+endif ()
+
+if (URIPARSER_FOUND)
+   if (NOT URIPARSER_FIND_QUIETLY)
+      message(STATUS &quot;Found UriParser library: ${URIPARSER_LIBRARY}&quot;)
+   endif ()
+else ()
+   if (NOT URIPARSER_FIND_QUIETLY)
+      message(FATAL_ERROR &quot;Could NOT find UriParser library&quot;)
+    else ()
+      message(STATUS &quot;Could NOT find UriParser library&quot;)
+    endif ()
+endif ()
+</code></pre>
+<p>然后将这个文件放在<code>proj/cmake</code>下， 然后再CMakeLists.txt里定义</p>
+<pre><code class="language-cmake">set(CMAKE_MODULE_PATH
+     ${CMAKE_SOURCE_DIR}/cmake
+     ${CMAKE_MODULE_PATH})
+</code></pre>
+<p>在需要使用uriparser的子项目CMakeLists.txt中定义<code>target_link_libraries(subproj PUBLIC ${URIPARSER_INCLUDE_DIR})</code>即可。</p>
 
               </div>
               <div class="toc-container">
@@ -112,6 +161,15 @@
           </article>
         </div>
 
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://wangpifu.github.io/post/c/">
+              <h3 class="post-title">
+                c++ Multithreading programming 学习(4)
+              </h3>
+            </a>
+          </div>
         
 
         

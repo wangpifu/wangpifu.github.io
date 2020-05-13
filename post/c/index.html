@@ -1,0 +1,574 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>c++ Multithreading programming 学习(4) | wangpifu</title>
+<link rel="shortcut icon" href="https://wangpifu.github.io/favicon.ico?v=1589334809586">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://wangpifu.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="c++ Multithreading programming 学习(4) | wangpifu - Atom Feed" href="https://wangpifu.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-164999139-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-164999139-1');
+</script>
+
+
+    <meta name="description" content="先放一张c++ 特性在不同版本的线路图：
+
+线程创建
+构造一个thread对象，可以传入参数，这些参数are either moved or copied by value. 如果我们要传入一个引用，需要std::ref。 新的线程创建之后..." />
+    <meta name="keywords" content="" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://wangpifu.github.io">
+  <img class="avatar" src="https://wangpifu.github.io/images/avatar.png?v=1589334809586" alt="">
+  </a>
+  <h1 class="site-title">
+    wangpifu
+  </h1>
+  <p class="site-description">
+    而今迈步从头越
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          博客
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          标签
+        </a>
+      
+    
+      
+        <a href="/post/about" class="menu">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              c++ Multithreading programming 学习(4)
+            </h2>
+            <div class="post-info">
+              <span>
+                2020-05-02
+              </span>
+              <span>
+                15 min read
+              </span>
+              
+            </div>
+            
+              <img class="post-feature-image" src="https://wangpifu.github.io/post-images/c-multithreading-programming-xue-xi-1.jpg" alt="">
+            
+            <div class="post-content-wrapper">
+              <div class="post-content">
+                <p>先放一张c++ 特性在不同版本的线路图：<br>
+<img src="https://wangpifu.github.io/post-images/1588735714078.png" alt="" loading="lazy"></p>
+<h2 id="线程创建">线程创建</h2>
+<p>构造一个<code>thread</code>对象，可以传入参数，这些参数are either moved or copied by value. 如果我们要传入一个引用，需要<code>std::ref</code>。 新的线程创建之后即有可能被执行，至于是当前线程下一条语句先执行还是新线程先执行取决于操作系统的调度策略。</p>
+<pre><code class="language-c++">void f1(int n)
+{
+    for (int i = 0; i &lt; 5; ++i) {
+        std::cout &lt;&lt; &quot;Thread 1 executing\n&quot;;
+        ++n;
+        std::cout &lt;&lt; n &lt;&lt; std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+}
+int main()
+{
+    int n = 5
+    std::thread t2(f1, n + 1); // pass by value
+    t2.join();
+    std::cout &lt;&lt; n &lt;&lt; std::endl;
+}
+</code></pre>
+<h2 id="join-detach">join &amp; detach</h2>
+<p><code>join</code>是等待线程完成执行，在等待过程中会阻塞当前<code>*this</code> 线程执行。  <code>detach</code>是将线程分离出去独自完成，被分配给分离线程的资源会在这个线程执行完后自动释放。我们需要在thread对象析构前决定是将它<code>join</code>还是<code>detach</code>，否则thread在析构时叫调用<code>std::terminate()</code>并导致进程异常退出. <code>joinable()</code>用来检测线程是否是活跃的线程，是则返回<code>true</code>，如果一个线程已经执行完毕但是还没有被joined，调用<code>joinable</code>也会返回<code>true</code>。</p>
+<h2 id="线程管理">线程管理</h2>
+<p><code>std::this_thread::get_id()</code> 返回当前线程id<br>
+<code>std::this_thread::yeild()</code> 让出处理器，让其他线程可以被调用。比如说busy wait时让出。<br>
+<code>std::this_thread::sleep_for()</code> 使当前线程停止一段时间。<br>
+<code>std::this_thread::sleep_until()</code> 使当前线程停止到指定时间。<br>
+<code>once_flag()</code> 和<code>call_once(once_flag&amp; flag, Callable&amp;&amp; f, Args&amp;&amp;... args)</code> 即便在多线程concurrent情况下，确保f只被call了一次。<br>
+对于<code>get_id()</code>来说，这里返回的应该是底层所对应的thread id。 我们用<code>native_handle()</code> 来看一下， native_handle() 可以让我们直接用底层库(POSIX on Linux or Windows API on Windows)来操作线程。</p>
+<pre><code class="language-c++">#include &lt;iostream&gt;
+#include &lt;pthread.h&gt;
+#include &lt;thread&gt;
+#include &lt;mutex&gt;
+int main(int argc, const char** argv) {
+  std::mutex iomutex;
+  std::thread t = std::thread([&amp;iomutex] {
+    {
+      std::lock_guard&lt;std::mutex&gt; iolock(iomutex);
+      std::cout &lt;&lt; &quot;Thread: my id = &quot; &lt;&lt; std::this_thread::get_id() &lt;&lt; &quot;\n&quot;
+                &lt;&lt; &quot;        my pthread id = &quot; &lt;&lt; pthread_self() &lt;&lt; &quot;\n&quot;;
+    }
+  });
+
+  {
+    std::lock_guard&lt;std::mutex&gt; iolock(iomutex);
+    std::cout &lt;&lt; &quot;Launched t: id = &quot; &lt;&lt; t.get_id() &lt;&lt; &quot;\n&quot;
+              &lt;&lt; &quot;            native_handle = &quot; &lt;&lt; t.native_handle() &lt;&lt; &quot;\n&quot;;
+  }
+
+  t.join();
+  return 0;
+}
+</code></pre>
+<p>这个程序打印出的是</p>
+<pre><code>Launched t: id = 139958647310080
+            native_handle = 139958647310080        
+Thread: my id = 139958647310080
+            my pthread id = 139958647310080
+</code></pre>
+<p>可以看到，在POSIX平台上，<code>native_handle()</code>所拿到的id就是<code>pthread_self()</code> 返回的<code>pthread_t</code>(注意：不是<code>pid_t</code>!!)，而<code>get_id</code>()和这个值相同。那么知道了id有什么用呢？我们可以根据thread id来设置cpu affinity。尽管我们可以通过在命令行输入 <code>taskset -c $cpuid ./program</code>来限制我们想在哪些cpu上运行程序，但是我们有时更希望可以在程序内部设定。这时我们就需要用到<code>pthread_setaffinity_np</code>了，注意这里我们不能使用<a href="https://wangpifu.github.io/post/cpu-affinity-qin-he-xing/">这篇博客</a>提到的<code>sched_setaffinity</code>因为<code>native_handle()</code>返回的是<code>pthread_t</code>而不是<code>pid_t</code>。</p>
+<pre><code class="language-c++">int main(int argc, const char** argv) {
+  constexpr unsigned num_threads = 4;
+  // A mutex ensures orderly access to std::cout from multiple threads.
+  std::mutex iomutex;
+  std::vector&lt;std::thread&gt; threads(num_threads);
+  for (unsigned i = 0; i &lt; num_threads; ++i) {
+    threads[i] = std::thread([&amp;iomutex, i] {
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+      while (1) {
+        {
+          // Use a lexical scope and lock_guard to safely lock the mutex only
+          // for the duration of std::cout usage.
+          std::lock_guard&lt;std::mutex&gt; iolock(iomutex);
+          std::cout &lt;&lt; &quot;Thread #&quot; &lt;&lt; i &lt;&lt; &quot;: on CPU &quot; &lt;&lt; sched_getcpu() &lt;&lt; &quot;\n&quot;;
+        }
+
+        // Simulate important work done by the tread by sleeping for a bit...
+        std::this_thread::sleep_for(std::chrono::milliseconds(900));
+      }
+    });
+
+    // Create a cpu_set_t object representing a set of CPUs. Clear it and mark
+    // only CPU i as set.
+    cpu_set_t cpuset;
+    CPU_ZERO(&amp;cpuset);
+    CPU_SET(i, &amp;cpuset);
+    int rc = pthread_setaffinity_np(threads[i].native_handle(),
+                                    sizeof(cpu_set_t), &amp;cpuset);
+    if (rc != 0) {
+      std::cerr &lt;&lt; &quot;Error calling pthread_setaffinity_np: &quot; &lt;&lt; rc &lt;&lt; &quot;\n&quot;;
+    }
+  }
+
+  for (auto&amp; t : threads) {
+    t.join();
+  }
+  return 0;
+}
+</code></pre>
+<h2 id="mutex">mutex</h2>
+<p><code>mutex</code>	C++11	提供基本互斥设施<br>
+<code>timed_mutex</code>	C++11	提供互斥设施，带有超时功能<br>
+<code>recursive_mutex</code>	C++11	提供能被同一线程递归锁定的互斥设施<br>
+<code>recursive_timed_mutex</code>	C++11	提供能被同一线程递归锁定的互斥设施，带有超时功能<br>
+<code>shared_timed_mutex</code>	C++14	提供共享互斥设施并带有超时功能<br>
+<code>shared_mutex</code>	C++17	提供共享互斥设施<br>
+对于上面的锁，有下列方法可以操作<br>
+<code>lock()</code>	锁定mutex，如果mutex不可用，则当前线程阻塞<br>
+<code>try_lock()</code>	尝试锁定mutex，如果mutx不可用，直接返回<br>
+<code>unlock()</code>	解锁mutex<br>
+上面不同类型的锁在三个方面对基础的mutex进行了拓展</p>
+<ul>
+<li>超时：<code>timed_mutex</code>，<code>recursive_timed_mutex</code>，<code>shared_timed_mutex</code>的名称都带有timed，这意味着它们都支持超时功能。它们都提供了<code>try_lock_for</code>和<code>try_lock_until</code>方法，这两个方法分别可以指定超时的时间长度和时间点。如果在超时的时间范围内没有能获取到锁，则直接返回，不再继续等待。</li>
+<li>可重入：<code>recursive_mutex</code>和<code>recursive_timed_mutex</code>的名称都带有recursive。可重入或者叫做可递归，是指在同一个线程中，同一把锁可以锁定多次。这就避免了一些不必要的死锁。</li>
+<li>共享：<code>shared_timed_mutex</code>和<code>shared_mutex</code>提供了共享功能。对于这类互斥体，实际上是提供了两把锁：一把是共享锁，一把是互斥锁。一旦某个线程获取了互斥锁，任何其他线程都无法再获取互斥锁和共享锁；但是如果有某个线程获取到了共享锁，其他线程无法再获取到互斥锁，但是还有获取到共享锁。这里互斥锁的使用和其他的互斥体接口和功能一样。而共享锁可以同时被多个线程同时获取到（使用共享锁的接口见下面的表格）。共享锁通常用在读者写者模型上。<br>
+使用共享锁的接口如下：<br>
+<code>lock_shared</code>	获取互斥体的共享锁，如果无法获取则阻塞<br>
+<code>try_lock_shared</code>	尝试获取共享锁，如果不可用，直接返回<br>
+<code>unlock_shared</code>	解锁共享锁<br>
+一个示例程序：</li>
+</ul>
+<pre><code class="language-c++">
+void concurrent_worker(int min, int max) {
+  double tmp_sum = 0;
+  for (int i = min; i &lt;= max; i++) {
+    tmp_sum += sqrt(i); // ①
+  }
+  exclusive.lock(); // ②
+  sum += tmp_sum;
+  exclusive.unlock();
+}
+void concurrent_task(int min, int max) {
+  auto start_time = chrono::steady_clock::now();
+
+  unsigned concurrent_count = thread::hardware_concurrency();
+  cout &lt;&lt; &quot;hardware_concurrency: &quot; &lt;&lt; concurrent_count &lt;&lt; endl;
+  vector&lt;thread&gt; threads;
+  min = 0;
+  sum = 0;
+  for (int t = 0; t &lt; concurrent_count; t++) {
+    int range = max / concurrent_count * (t + 1);
+    threads.push_back(thread(concurrent_worker, min, range)); // ③
+    min = range + 1;
+  }
+  for (int i = 0; i &lt; threads.size(); i++) {
+    threads[i].join();
+  }
+
+  auto end_time = chrono::steady_clock::now();
+  auto ms = chrono::duration_cast&lt;chrono::milliseconds&gt;(end_time - start_time).count();
+  cout &lt;&lt; &quot;Concurrent task finish, &quot; &lt;&lt; ms &lt;&lt; &quot; ms consumed, Result: &quot; &lt;&lt; sum &lt;&lt; endl;
+}
+</code></pre>
+<p>我们用锁的粒度（granularity）来描述锁的范围。细粒度（fine-grained）是指锁保护较小的范围，粗粒度（coarse-grained）是指锁保护较大的范围。出于性能的考虑，我们应该保证锁的粒度尽可能的细。并且，不应该在获取锁的范围内执行耗时的操作，例如执行IO。如果是耗时的运算，也应该尽可能的移到锁的外面。如上代码，如果在for loop里对每次计算都加锁，那么执行时间反而会大幅增加。</p>
+<p>如过我们有多个锁，要求每个task都必须锁上全部才能执行，那就有可能陷入死锁。C++ 11标准中为我们提供了一些工具来避免因为多把锁而导致的死锁。我们只要直接调用这些接口就可以了。下面提到的两个函数，它们都支持传入多个Lockable对象。<br>
+<code>template &lt;class Mutex1, class Mutex2, class... Mutexes&gt; void lock (Mutex1&amp; a, Mutex2&amp; b, Mutexes&amp;... cde);</code><br>
+<code>template &lt;class Mutex1, class Mutex2, class... Mutexes&gt; int try_lock (Mutex1&amp; a, Mutex2&amp; b, Mutexes&amp;... cde);</code><br>
+我们同时来获取多把锁，标准库的实现保证了不会发生死锁。</p>
+<h2 id="mutex-管理">Mutex 管理</h2>
+<table>
+<thead>
+<tr>
+<th>API</th>
+<th>C++标准</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lock_guard</code></td>
+<td>C++11</td>
+<td>实现严格基于作用域的互斥体所有权包装器</td>
+</tr>
+<tr>
+<td><code>unique_lock</code></td>
+<td>C++11</td>
+<td>实现可移动的互斥体所有权包装器</td>
+</tr>
+<tr>
+<td><code>shared_lock</code></td>
+<td>C++14</td>
+<td>实现可移动的共享互斥体所有权封装器</td>
+</tr>
+<tr>
+<td><code>scoped_lock</code></td>
+<td>C++17</td>
+<td>用于多个互斥体的免死锁 RAII 封装器</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>锁定策略</th>
+<th>C++标准</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>defer_lock</code></td>
+<td>C++11</td>
+<td>类型为 defer_lock_t，不获得互斥的所有权</td>
+</tr>
+<tr>
+<td><code>try_to_lock</code></td>
+<td>C++11</td>
+<td>类型为try_to_lock_t，尝试获得互斥的所有权而不阻塞</td>
+</tr>
+<tr>
+<td><code>adopt_lock</code></td>
+<td>C++11</td>
+<td>类型为adopt_lock_t，假设调用方已拥有互斥的所有权</td>
+</tr>
+</tbody>
+</table>
+<p>如上一节所说，为避免死锁，我们需要同时把所有的锁锁住。假设现在我们处在用一个账户给另一个账户转钱的情境中，我们需要每个账户都有自己的锁，在转钱时，要同时锁住两个账户的锁。</p>
+<pre><code class="language-c++">lock(*accountA-&gt;getLock(), *accountB-&gt;getLock());
+lock_guard lockA(*accountA-&gt;getLock(), adopt_lock);
+lock_guard lockB(*accountB-&gt;getLock(), adopt_lock);
+</code></pre>
+<p>如果使用unique_lock这三行代码还有一种等价的写法：</p>
+<pre><code class="language-c++">unique_lock lockA(*accountA-&gt;getLock(), defer_lock);
+unique_lock lockB(*accountB-&gt;getLock(), defer_lock);
+lock(*accountA-&gt;getLock(), *accountB-&gt;getLock());
+</code></pre>
+<p>注意这里lock方法的调用位置。这里先定义<code>unique_lock</code>指定了<code>defer_lock</code>，因此实际没有锁定互斥体，而是到第三行才进行锁定。<br>
+最后，借助scoped_lock，我们可以将三行代码合成一行，这种写法也是等价的。<br>
+<code>scoped_lock lockAll(*accountA-&gt;getLock(), *accountB-&gt;getLock());</code><br>
+<code>scoped_lock</code>会在其生命周期范围内锁定互斥体，销毁的时候解锁。同时，它可以锁定多个互斥体，并且避免死锁。</p>
+<h2 id="condition-varible">Condition Varible</h2>
+<p>Condition variable 通常和一个时间或变量联系到一起，通常来说，一个线程会</p>
+<ul>
+<li>改变变量然后通知其他线程</li>
+<li>或者等待某个变量满足条件</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>API</th>
+<th>C++标准</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>condition_variable</td>
+<td>C++ 11</td>
+<td>提供与 std::unique_lock 关联的条件变量</td>
+</tr>
+<tr>
+<td>condition_variable_any</td>
+<td>C++ 11</td>
+<td>提供与任何锁类型关联的条件变量</td>
+</tr>
+<tr>
+<td>notify_all_at_thread_exit</td>
+<td>C++ 11</td>
+<td>安排到在此线程完全结束时对 notify_all 的调用</td>
+</tr>
+<tr>
+<td>cv_status</td>
+<td>C++ 11</td>
+<td>列出条件变量上定时等待的可能结果</td>
+</tr>
+</tbody>
+</table>
+<h3 id="一个简单例子">一个简单例子</h3>
+<pre><code class="language-c++">#include &lt;condition_variable&gt;
+#include &lt;iostream&gt;
+#include &lt;thread&gt;
+
+std::mutex mutex_;
+std::condition_variable condVar; 
+bool dataReady{false};
+
+void waitingForWork(){
+    std::cout &lt;&lt; &quot;Waiting &quot; &lt;&lt; std::endl;
+    std::unique_lock&lt;std::mutex&gt; lck(mutex_);
+    condVar.wait(lck, []{ return dataReady; });   // (4)
+    std::cout &lt;&lt; &quot;Running &quot; &lt;&lt; std::endl;
+}
+
+void setDataReady(){
+    {
+        std::lock_guard&lt;std::mutex&gt; lck(mutex_);
+        dataReady = true;
+    }
+    std::cout &lt;&lt; &quot;Data prepared&quot; &lt;&lt; std::endl;
+    condVar.notify_one();                        // (3)
+}
+
+int main(){
+  std::cout &lt;&lt; std::endl;
+  std::thread t1(waitingForWork);               // (1)
+  std::thread t2(setDataReady);                 // (2)
+  t1.join();
+  t2.join();
+  std::cout &lt;&lt; std::endl;
+}
+</code></pre>
+<p>上面的程序有两个thread， 一个<code>setDataReady</code>【2】，另一个<code>waitingForWork</code>【1】。t2通过<code>lock_guard</code>上锁然后改变dataReady,通过<code>notify_one()</code>【3】通知等待这个条件变量<code>condVar</code>的另外一条线程。 线程t1通过条件变量进行等待，他会通过pred(即那个lambda表达式)来判断条件是否满足，如果满足会继续。如果<strong>不满足就解锁锁，然后当前线程陷入等待</strong>。这样其他线程才能获得锁。这里我想讨论一下<code>notify_one()</code> 和 <code>notify_all()</code>的区别，如果我没记错，他们在linux下分别对应<code>pthread_cond_signal</code>和<code>pthread_cond_broadcast</code>。一个是唤醒至少一个阻塞在当前条件变量的线程，如果有不止一个线程在等待当前条件变量，调度策略会决定哪一个线程将结束阻塞；另外一个是唤醒所有的阻塞在当前条件变量的线程，这些线程需要去竞争锁。看上去<code>notify_all()</code>是<code>notify_one()</code>的超集，但是我们需要考虑具体的业务场景，如果只需要众多线程中的一个去处理，那实在没有必要去<code>notify_all()</code>.</p>
+<h4 id="运行结果">运行结果</h4>
+<pre><code>Waiting
+Data prepared      
+Running
+</code></pre>
+<p>为什么我们需要在【4】有一个pred而不是直接去等待这个条件变量呢，在此之前，我们先介绍两种现象，一种是lost wakeup, 另外一种是spurious wakeup。 前者是指在接受线程进入等待状态前，发送线程就已经发送了通知，后果就是这个通知丢了，接受线程会永远等待下去。后者是指没有通知发送，但是还是有接受线程醒来。而pred就是为了避免这两种现象。</p>
+<p>在上面的例子里，线程t1会先锁住mutex，然后去查看pred <code>[]{return dataReady;}</code>，如果pred返回<code>true</code>那么线程继续工作，返回<code>false</code>那么<code>condVar.wait()</code>解锁mutex，然后进入等待/阻塞状态。当condVar处于等待状态时，收到一个通知，他会从从阻塞中恢复并获取mutex锁，然后检查pred，如果pred是<code>true</code>则继续工作，<code>false</code>那么<code>condVar.wait()</code>解锁mutex，然后进入等待/阻塞状态. 如果去掉pred，那么我们可能会陷入死锁</p>
+<pre><code>Data prepared      
+Waiting
+</code></pre>
+<p>这是因为t1还没有进入等待状态时，t2就已经发送了通知，所以t1会永远等下去。 而加了pred，它对应</p>
+<pre><code class="language-c++">while (!pred()) {
+    wait(lock);
+}
+</code></pre>
+<p>这样不仅避免了lost wakeup，也解决了spurious wakeup。当然，对于一些复杂情况，比如A则执行actionA,B则执行actionB,用没有pred的wait()会有更好的性能。这也是为社么cpp有不含pred的重载<br>
+e.g.</p>
+<pre><code class="language-c++">cond.wait(lock, []{return (A || B);});
+if(A) {
+    actionA();
+}
+else {
+    actionB();
+}
+</code></pre>
+<p>需要检测条件两次,而</p>
+<pre><code class="language-c++">while(true)
+{
+    if(A) {
+         actionA();
+         break;
+    }
+    else if(B) {
+         actionB();
+         break;
+    }
+    cond.wait(lock);
+}
+</code></pre>
+<p>对于每种情况只检测一次。</p>
+<h2 id="reference">Reference</h2>
+<ul>
+<li>https://eli.thegreenplace.net/2016/c11-threads-affinity-and-hyperthreading/</li>
+<li>https://paul.pub/cpp-concurrency/</li>
+<li>https://www.modernescpp.com/index.php/c-core-guidelines-be-aware-of-the-traps-of-condition-variables</li>
+</ul>
+
+              </div>
+              <div class="toc-container">
+                <ul class="markdownIt-TOC">
+<li>
+<ul>
+<li><a href="#%E7%BA%BF%E7%A8%8B%E5%88%9B%E5%BB%BA">线程创建</a></li>
+<li><a href="#join-detach">join &amp; detach</a></li>
+<li><a href="#%E7%BA%BF%E7%A8%8B%E7%AE%A1%E7%90%86">线程管理</a></li>
+<li><a href="#mutex">mutex</a></li>
+<li><a href="#mutex-%E7%AE%A1%E7%90%86">Mutex 管理</a></li>
+<li><a href="#condition-varible">Condition Varible</a>
+<ul>
+<li><a href="#%E4%B8%80%E4%B8%AA%E7%AE%80%E5%8D%95%E4%BE%8B%E5%AD%90">一个简单例子</a>
+<ul>
+<li><a href="#%E8%BF%90%E8%A1%8C%E7%BB%93%E6%9E%9C">运行结果</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="#reference">Reference</a></li>
+</ul>
+</li>
+</ul>
+
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://wangpifu.github.io/post/c-multithreading-programming-xue-xi-3/">
+              <h3 class="post-title">
+                c++ Multithreading programming 学习(3)
+              </h3>
+            </a>
+          </div>
+        
+
+        
+          
+            <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+<script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: 'c618ca9283439df7d7b5',
+    clientSecret: '9d9da4b14992b1b52b311e7f5a7ab89a9694b501',
+    repo: 'wangpifu.github.io',
+    owner: 'wangpifu',
+    admin: ['wangpifu'],
+    id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false  // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+          
+
+          
+        
+
+        <div class="site-footer">
+  Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a>
+  <a class="rss" href="https://wangpifu.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>

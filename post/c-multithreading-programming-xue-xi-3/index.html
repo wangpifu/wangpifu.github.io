@@ -2,11 +2,11 @@
   <head>
     <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>第一篇博客 | wangpifu</title>
+<title>c++ Multithreading programming 学习(3) | wangpifu</title>
 <link rel="shortcut icon" href="https://wangpifu.github.io/favicon.ico?v=1589334809586">
 <link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
 <link rel="stylesheet" href="https://wangpifu.github.io/styles/main.css">
-<link rel="alternate" type="application/atom+xml" title="第一篇博客 | wangpifu - Atom Feed" href="https://wangpifu.github.io/atom.xml">
+<link rel="alternate" type="application/atom+xml" title="c++ Multithreading programming 学习(3) | wangpifu - Atom Feed" href="https://wangpifu.github.io/atom.xml">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
 
 
@@ -20,7 +20,7 @@
 </script>
 
 
-    <meta name="description" content="这是一篇建立在github pages，用Gridea构建管理的私人博客站点。目前来看Gridea是最方便的搭建管理软件，避免了安装nodejs 或者 ruby。 这对于Windows系统非常方便。坦白来讲，我并不希望在我的Windows ..." />
+    <meta name="description" content="继上一篇介绍完pthead，本来想接着学习c++的thread库，但又有点犯懒，感觉自己封装一下pthread就好，因为我的业余开发环境是linux，而且c++版本还停留在c++11（很多人诟病c++11 的thread库），所以只要封装出..." />
     <meta name="keywords" content="" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
     <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
@@ -83,26 +83,30 @@
         <div class="post-detail">
           <article class="post">
             <h2 class="post-title">
-              第一篇博客
+              c++ Multithreading programming 学习(3)
             </h2>
             <div class="post-info">
               <span>
                 2020-04-29
               </span>
               <span>
-                2 min read
+                3 min read
               </span>
               
             </div>
             
-              <img class="post-feature-image" src="https://wangpifu.github.io/post-images/first-blog.jpg" alt="">
+              <img class="post-feature-image" src="https://wangpifu.github.io/post-images/c-multithreading-programming-xue-xi-1.jpg" alt="">
             
             <div class="post-content-wrapper">
               <div class="post-content">
-                <p>这是一篇建立在github pages，用Gridea构建管理的私人博客站点。目前来看Gridea是最方便的搭建管理软件，避免了安装nodejs 或者 ruby。 这对于Windows系统非常方便。坦白来讲，我并不希望在我的Windows box上安装任何和技术开发相关的软件，因为他们的使用频率很低，最终会被我遗忘在漫长的时光里。而我的开发机器（based on linux），我又希望它能只承载和开发相关的事务。另外，Gridea看起来更加直观与人性化，避免了许多与写作不相关的操作。希望Gridea可以一直被维护下去，感谢Gridea。cnblog本来是我的第一选择，但是需要手机号注册。CSDN则有太多的广告。知乎的话，我更倾向于发布仔细审视后的文章。这个站点则会更随意一些，有些想法我可以先记载下来，在日后慢慢的更改完善。</p>
-<p>写博客的动力来自于一次失败的面试。我意识到很多技术的积累不能光靠工作，以及需要了解平时工作下的更深入的东西。人必须要不断地走出舒适圈，去接触自己不熟悉的东西，再能慢慢变得全能起来。我是一个不喜欢走在科技前端的人，平时更倾向于利用纸笔做笔记，但是现在意识到对于代码来讲，博客可能是个更合适的地方。对于刚开始的几篇文章，发布的频率可能比较高，内容可能不够精细，因为我希望能提纲挈领地把一些我在脑海中总结过的知识转移到这个站点上来，会在随后的日子里慢慢打磨。另外，我此时迫不及待地希望我能把一些需要学习的知识点电子化的记录下来，这也会导致初期一些文章显得杂乱。</p>
-<p>希望明天会更好。<br>
---20200429 阴天 纽约</p>
+                <p>继上一篇介绍完pthead，本来想接着学习c++的thread库，但又有点犯懒，感觉自己封装一下pthread就好，因为我的业余开发环境是linux，而且c++版本还停留在c++11（很多人诟病c++11 的thread库），所以只要封装出thread, mutex, condition_variable和lock_guard (RAII. acquire resource at initialization and release at destruction) 那应该就够我自己用了。但是考虑到公司早已转到c++17, 我还是学习一下。不过在这一节，我先附上一些对我以前一些疑问的解答，在下一节再接着写 <code>&lt;thread&gt;</code>库。</p>
+<blockquote>
+<p>作者：Gomo Psivarh<br>
+链接：https://www.zhihu.com/question/31459750/answer/52069135<br>
+来源：知乎<br>
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。<br>
+C/C++多线程编程中不要使用volatile。（注：这里的意思指的是指望volatile解决多线程竞争问题是有很大风险的，除非所用的环境系统不可靠才会为了保险加上volatile，或者是从极限效率考虑来实现很底层的接口。这要求编写者对程序逻辑走向很清楚才行，不然就会出错）C++11标准中明确指出解决多线程的数据竞争问题应该使用原子操作或者互斥锁。C和C++中的volatile并不是用来解决多线程竞争问题的，而是用来修饰一些因为程序不可控因素导致变化的变量，比如访问底层硬件设备的变量，以提醒编译器不要对该变量的访问擅自进行优化。多线程场景下可以参考《Programming with POSIX threads》的作者Dave Butenhof对Why don't I need to declare shared variables VOLATILE?这个问题的解释：comp.programming.threads FAQ简单的来说，对访问共享数据的代码块加锁，已经足够保证数据访问的同步性，再加volatile完全是多此一举。如果光对共享变量使用volatile修饰而在可能存在竞争的操作中不加锁或使用原子操作对解决多线程竞争没有任何卵用，因为volatile并不能保证操作的原子性，在读取、写入变量的过程中仍然可能被其他线程打断导致意外结果发生。</p>
+</blockquote>
 
               </div>
               <div class="toc-container">
@@ -112,6 +116,15 @@
           </article>
         </div>
 
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://wangpifu.github.io/post/c-multithreading-programming-xue-xi-2/">
+              <h3 class="post-title">
+                c++ Multithreading programming 学习(2)
+              </h3>
+            </a>
+          </div>
         
 
         
