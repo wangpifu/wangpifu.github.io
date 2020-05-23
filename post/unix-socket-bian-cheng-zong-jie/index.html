@@ -3,7 +3,7 @@
     <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>unix socket 编程总结 | wangpifu</title>
-<link rel="shortcut icon" href="https://wangpifu.github.io/favicon.ico?v=1590265928321">
+<link rel="shortcut icon" href="https://wangpifu.github.io/favicon.ico?v=1590266446369">
 <link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
 <link rel="stylesheet" href="https://wangpifu.github.io/styles/main.css">
 <link rel="alternate" type="application/atom+xml" title="unix socket 编程总结 | wangpifu - Atom Feed" href="https://wangpifu.github.io/atom.xml">
@@ -32,7 +32,7 @@ SOCK_STREAM 是一种可靠的、双向的通信数据流，数据可以准确�
       <div class="main-content">
         <div class="site-header">
   <a href="https://wangpifu.github.io">
-  <img class="avatar" src="https://wangpifu.github.io/images/avatar.png?v=1590265928321" alt="">
+  <img class="avatar" src="https://wangpifu.github.io/images/avatar.png?v=1590266446369" alt="">
   </a>
   <h1 class="site-title">
     wangpifu
@@ -89,7 +89,7 @@ SOCK_STREAM 是一种可靠的、双向的通信数据流，数据可以准确�
             </h2>
             <div class="post-info">
               <span>
-                2020-05-22
+                2020-05-21
               </span>
               <span>
                 14 min read
@@ -193,12 +193,10 @@ accept() 返回一个新的套接字来和客户端通信，addr 保存了客户
 </ol>
 <p>如果flags为0,则和read,write一样的操作。</p>
 <h2 id="workflow">workflow</h2>
-<center class="half">
-TCP:
-<img src="file://F:/software/Gridea_blog_resources/Gridea/post-images/1590256430475.gif">
-UDP:
-<img src="file://F:/software/Gridea_blog_resources/Gridea/post-images/1590256440650.png">
-</center>
+<p>TCP:<br>
+<img src="https://wangpifu.github.io/post-images/1590266411272.png" alt="" loading="lazy"><br>
+UDP:<br>
+<img src="https://wangpifu.github.io/post-images/1590266418266.png" alt="" loading="lazy"></p>
 <h2 id="socket缓冲区">socket缓冲区</h2>
 <p>每个 socket 被创建后，都会分配两个缓冲区，输入缓冲区和输出缓冲区。<code>write()</code>/<code>send()</code> 并不立即向网络中传输数据，而是先将数据写入缓冲区中，再由TCP协议将数据从缓冲区发送到目标机器。一旦将数据写入到缓冲区，函数就可以成功返回，不管它们有没有到达目标机器，也不管它们何时被发送到网络，这些都是TCP协议负责的事情。TCP协议独立于 <code>write()</code>/<code>send()</code> 函数，数据有可能刚被写入缓冲区就发送到网络，也可能在缓冲区中不断积压，多次写入的数据被一次性发送到网络，这取决于当时的网络情况、当前线程是否空闲等诸多因素，不由程序员控制。<code>read()</code>/<code>recv()</code> 函数也是如此，也从输入缓冲区中读取数据，而不是直接从网络中读取。这些I/O缓冲区特性可整理如下：</p>
 <ol>

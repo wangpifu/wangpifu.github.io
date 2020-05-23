@@ -2,7 +2,7 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>https://wangpifu.github.io</id>
     <title>wangpifu</title>
-    <updated>2020-05-23T20:32:36.201Z</updated>
+    <updated>2020-05-23T20:41:16.441Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
     <link rel="alternate" href="https://wangpifu.github.io"/>
     <link rel="self" href="https://wangpifu.github.io/atom.xml"/>
@@ -15,7 +15,7 @@
         <id>https://wangpifu.github.io/post/unix-socket-bian-cheng-zong-jie/</id>
         <link href="https://wangpifu.github.io/post/unix-socket-bian-cheng-zong-jie/">
         </link>
-        <updated>2020-05-22T11:33:19.000Z</updated>
+        <updated>2020-05-21T23:33:19.000Z</updated>
         <content type="html"><![CDATA[<h2 id="socket-type">socket type</h2>
 <h3 id="sock_stream">SOCK_STREAM</h3>
 <p>SOCK_STREAM 是一种可靠的、双向的通信数据流，数据可以准确无误地到达另一台计算机，如果损坏或丢失，可以重新发送。因为它使用了 TCP 协议.流格式套接字的内部有一个缓冲区（也就是字符数组），通过 socket 传输的数据将保存到这个缓冲区。接收端在收到数据后并不一定立即读取，只要数据不超过缓冲区的容量，接收端有可能在缓冲区被填满以后一次性地读取，也可能分成好几次读取。</p>
@@ -100,12 +100,10 @@ accept() 返回一个新的套接字来和客户端通信，addr 保存了客户
 </ol>
 <p>如果flags为0,则和read,write一样的操作。</p>
 <h2 id="workflow">workflow</h2>
-<center class="half">
-TCP:
-<img src="file://F:/software/Gridea_blog_resources/Gridea/post-images/1590256430475.gif">
-UDP:
-<img src="file://F:/software/Gridea_blog_resources/Gridea/post-images/1590256440650.png">
-</center>
+<p>TCP:<br>
+<img src="https://wangpifu.github.io/post-images/1590266411272.png" alt="" loading="lazy"><br>
+UDP:<br>
+<img src="https://wangpifu.github.io/post-images/1590266418266.png" alt="" loading="lazy"></p>
 <h2 id="socket缓冲区">socket缓冲区</h2>
 <p>每个 socket 被创建后，都会分配两个缓冲区，输入缓冲区和输出缓冲区。<code>write()</code>/<code>send()</code> 并不立即向网络中传输数据，而是先将数据写入缓冲区中，再由TCP协议将数据从缓冲区发送到目标机器。一旦将数据写入到缓冲区，函数就可以成功返回，不管它们有没有到达目标机器，也不管它们何时被发送到网络，这些都是TCP协议负责的事情。TCP协议独立于 <code>write()</code>/<code>send()</code> 函数，数据有可能刚被写入缓冲区就发送到网络，也可能在缓冲区中不断积压，多次写入的数据被一次性发送到网络，这取决于当时的网络情况、当前线程是否空闲等诸多因素，不由程序员控制。<code>read()</code>/<code>recv()</code> 函数也是如此，也从输入缓冲区中读取数据，而不是直接从网络中读取。这些I/O缓冲区特性可整理如下：</p>
 <ol>
