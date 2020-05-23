@@ -1,0 +1,519 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>unix socket 编程总结 | wangpifu</title>
+<link rel="shortcut icon" href="https://wangpifu.github.io/favicon.ico?v=1590265928321">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://wangpifu.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="unix socket 编程总结 | wangpifu - Atom Feed" href="https://wangpifu.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-164999139-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-164999139-1');
+</script>
+
+
+    <meta name="description" content="socket type
+SOCK_STREAM
+SOCK_STREAM 是一种可靠的、双向的通信数据流，数据可以准确无误地到达另一台计算机，如果损坏或丢失，可以重新发送。因为它使用了 TCP 协议.流格式套接字的内部有一个缓冲区（也就是字符..." />
+    <meta name="keywords" content="socket,linux" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://wangpifu.github.io">
+  <img class="avatar" src="https://wangpifu.github.io/images/avatar.png?v=1590265928321" alt="">
+  </a>
+  <h1 class="site-title">
+    wangpifu
+  </h1>
+  <p class="site-description">
+    而今迈步从头越，去留肝胆两昆仑
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          博客
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          标签
+        </a>
+      
+    
+      
+        <a href="/post/about" class="menu">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              unix socket 编程总结
+            </h2>
+            <div class="post-info">
+              <span>
+                2020-05-22
+              </span>
+              <span>
+                14 min read
+              </span>
+              
+                <a href="https://wangpifu.github.io/tag/IP7_gmaoH/" class="post-tag">
+                  # socket
+                </a>
+              
+                <a href="https://wangpifu.github.io/tag/Sw56WNWMXq/" class="post-tag">
+                  # linux
+                </a>
+              
+            </div>
+            
+              <img class="post-feature-image" src="https://wangpifu.github.io/post-images/unix-socket-bian-cheng-zong-jie.jpg" alt="">
+            
+            <div class="post-content-wrapper">
+              <div class="post-content">
+                <h2 id="socket-type">socket type</h2>
+<h3 id="sock_stream">SOCK_STREAM</h3>
+<p>SOCK_STREAM 是一种可靠的、双向的通信数据流，数据可以准确无误地到达另一台计算机，如果损坏或丢失，可以重新发送。因为它使用了 TCP 协议.流格式套接字的内部有一个缓冲区（也就是字符数组），通过 socket 传输的数据将保存到这个缓冲区。接收端在收到数据后并不一定立即读取，只要数据不超过缓冲区的容量，接收端有可能在缓冲区被填满以后一次性地读取，也可能分成好几次读取。</p>
+<h3 id="sock_dgram">SOCK_DGRAM</h3>
+<p>使用 UDP 协议,是一种不可靠的、不按顺序传递的、以追求速度为目的的套接字。数据的发送和接收是同步的，换句话说，接收次数应该和发送次数相同。</p>
+<h2 id="socket-creation">socket creation</h2>
+<p>在 Linux 下使用 &lt;sys/socket.h&gt; 头文件中 socket() 函数来创建套接字，原型为：<br>
+<code>int socket(int af, int type, int protocol);</code><br>
+af 为地址族（Address Family), 常用的有 <code>AF_INET</code> 和 <code>AF_INET6</code> 对应IPv4与IPv6。<br>
+type 为数据传输方式/套接字类型，常用的有 <code>SOCK_STREAM</code>（流格式套接字/面向连接的套接字） 和 <code>SOCK_DGRAM</code>（数据报套接字/无连接的套接字)。<br>
+protocol 表示传输协议，常用的有 <code>IPPROTO_TCP</code> 和 <code>IPPTOTO_UDP</code>，分别表示 TCP 传输协议和 UDP 传输协议。可以设为0，会通过type推导出需要什么协议。</p>
+<pre><code class="language-c++">int tcp_socket = socket(AF_INET, SOCK_STREAM, 0);
+int udp_socket = socket(AF_INET, SOCK_DGRAM, 0); 
+</code></pre>
+<h2 id="bind">bind()</h2>
+<p>bind() 函数的原型为：<br>
+<code>int bind(int sock, struct sockaddr *addr, socklen_t addrlen);</code><br>
+sock 为 socket 文件描述符，addr 为 sockaddr 结构体变量的指针，addrlen 为 addr 变量的大小，可由 sizeof() 计算得出。</p>
+<pre><code class="language-c++">int serv_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+struct sockaddr_in serv_addr;
+memset(&amp;serv_addr, 0, sizeof(serv_addr));
+serv_addr.sin_family = AF_INET;  //use IPv4
+serv_addr.sin_addr.s_addr = inet_addr(&quot;127.0.0.1&quot;);  //localhost
+serv_addr.sin_port = htons(1234);  //port
+
+bind(serv_sock, (struct sockaddr*)&amp;serv_addr, sizeof(serv_addr));
+</code></pre>
+<p>这里我们使用 <code>sockaddr_in</code> 结构体，然后再强制转换为 <code>sockaddr</code> 类型.</p>
+<h3 id="sockaddr_in-vs-sockaddr">sockaddr_in vs sockaddr</h3>
+<p><img src="https://wangpifu.github.io/post-images/1590204417418.jpg" alt="" loading="lazy"><br>
+<code>sockaddr</code> 和 <code>sockaddr_in</code> 的长度相同，都是16字节，只是将IP地址和端口号合并到一起，用一个成员 sa_data 表示。要想给 sa_data 赋值，必须同时指明IP地址和端口号，例如”127.0.0.1:80“，遗憾的是，没有相关函数将这个字符串转换成需要的形式，也就很难给 <code>sockaddr</code> 类型的变量赋值，所以使用 <code>sockaddr_in</code> 来代替。这两个结构体的长度相同，强制转换类型时不会丢失字节，也没有多余的字节。可以认为，<code>sockaddr</code> 是一种通用的结构体，可以用来保存多种类型的IP地址和端口号，而 <code>sockaddr_in</code> 是专门用来保存 IPv4 地址的结构体。另外还有 <code>sockaddr_in6</code>，用来保存 IPv6 地址</p>
+<pre><code class="language-c++">struct sockaddr_in{
+    sa_family_t        sin_family;     //地址族(Address Family) / 地址类型
+    uint16_t            sin_port;        //16位的端口号 0-65535
+    struct in_addr   sin_addr;       //32位IP地址
+    char                  sin_zero[8];    //不使用，一般用0填充
+};
+struct in_addr{
+    // inside &lt;netinet/in.h&gt;
+    // typedef uint32_t in_addr_t 
+    in_addr_t          s_addr;           //32位的IP地址
+};
+</code></pre>
+<p>s_addr 是一个整数，而IP地址是一个字符串，所以需要 inet_addr() 函数进行转换<br>
+<code>unsigned long ip = inet_addr(&quot;127.0.0.1&quot;); // ip will be 16777343</code></p>
+<h2 id="connect">connect()</h2>
+<p>connect() 函数用来建立连接，它的原型为：<br>
+<code>int connect(int sock, struct sockaddr *serv_addr, socklen_t addrlen);</code></p>
+<h2 id="listen">listen()</h2>
+<p>通过 listen() 函数可以让套接字进入被动监听状态，它的原型为：<br>
+<code>int listen(int sock, int backlog);</code><br>
+sock 为需要进入监听状态的套接字，backlog 为请求队列的最大长度。当套接字正在处理客户端请求时，如果有新的请求进来，套接字是没法处理的，只能把它放进缓冲区，待当前请求处理完毕后，再从缓冲区中读取出来处理。如果不断有新的请求进来，它们就按照先后顺序在缓冲区中排队，直到缓冲区满。这个缓冲区，就称为请求队列（Request Queue）。缓冲区的长度（能存放多少个客户端请求）可以通过 listen() 函数的 backlog 参数指定，如果将 backlog 的值设置为 SOMAXCONN,则为系统最大支持值。当请求队列满时，就不再接收新的请求，对于 Linux，客户端会收到 ECONNREFUSED 错误。注意：listen() 只是让套接字处于监听状态，并没有接收请求。接收请求需要使用 accept() 函数。</p>
+<h2 id="accept">accept()</h2>
+<p>当套接字处于监听状态时，可以通过 accept() 函数来接收客户端请求。它的原型为：<br>
+<code>int accept(int sock, struct sockaddr *addr, socklen_t *addrlen);</code><br>
+accept() 返回一个新的套接字来和客户端通信，addr 保存了客户端的IP地址和端口号，而 sock 是服务器端的套接字，要注意区分。后面和客户端通信时，要使用这个新生成的套接字，而不是原来服务器端的套接字。需要说明的是：listen() 只是让套接字进入监听状态，并没有真正接收客户端请求，listen() 后面的代码会继续执行，直到遇到 accept()。accept() 会阻塞程序执行（后面代码不能被执行），直到有新的请求到来。</p>
+<h2 id="write-send-read-recv">write() send() read() recv()</h2>
+<p><code>write</code> 函数原型：<br>
+<code>ssize_t write(int fd, const void*buf,size_t nbytes)</code><br>
+<code>write</code>函数将<code>buf</code>中的<code>nbytes</code>字节内容写入文件描述符fd.成功时返回写的字节数.失败时返回-1.并设置<code>errno</code>变量. 在网络程序中,当我们向套接字文件描述符写时有两可能：</p>
+<ol>
+<li><code>write</code>的返回值大于0,表示写了部分或者是全部的数据. 这样我们用一个while循环来不停的写入，但是循环过程中的buf参数和nbyte参数得由我们来更新。也就是说，网络写函数是不负责将全部数据写完之后在返回的。</li>
+<li>返回的值小于0,此时出现了错误.我们要根据错误类型来处理.如果错误为<code>EINTR</code>表示在写的时候出现了中断错误.如果为<code>EPIPE</code>表示网络连接出现了问题(对方已经关闭了连接)。</li>
+</ol>
+<p><code>read</code> 函数原型：<br>
+<code>ssize_t read(int fd,void *buf,size_t nbyte)</code><br>
+<code>read</code>函数是负责从fd中读取内容。当读成功时，<code>read</code>返回实际所读的字节数,如果返回的值是0 表示已经读到文件的结束了,小于0表示出现了错误。如果错误为<code>EINTR</code>说明读是由中断引起 的, 如果是<code>ECONNREST</code>表示网络连接出了问题.</p>
+<p><code>recv</code>和<code>send</code>函数提供了和read和write差不多的功能.不过它们提供了第四个参数来控制读写操作：<br>
+<code>int recv(int sockfd,void *buf,int len,int flags)</code><br>
+<code>int send(int sockfd,void *buf,int len,int flags)</code><br>
+前面的三个参数和read,write一样,第四个参数可以是0或者是以下的组合：</p>
+<ol>
+<li><code>MSG_DONTROUTE</code>:是send函数使用的标志.这个标志告诉IP.目的主机在本地网络上面,没有必要查找表.这个标志一般用网络诊断和路由程序里面.</li>
+<li><code>MSG_OOB</code>:表示接收和发送带外的数据</li>
+</ol>
+<blockquote>
+<p>(有些传输层协议具有带外(Out of Band,OOB)数据的概念,用于迅速通告对方本端发生的重要事件。因此，带外数据比普通数据（也称带内数据）有更高的优先级，它应该总是立即发送，而不论发送缓冲区是否有排队等待发送的普通数据。带外数据的传输可以使用一条独立的传输层连接，也可以映射到传输普通数据的连接中，TCP采用的是后者（postscript：前者应该怎么实现，应该比较复杂和消耗性能）。在实际应用中，带外数据的使用很少见，已知的仅有telnet、ftp等远程非活跃程序。</p>
+</blockquote>
+<ol start="3">
+<li><code>MSG_PEEK</code>:是recv函数的使用标志,表示只是从系统缓冲区中读取内容,而不清除系统缓冲区的内容.这样下次读的时候,仍然是一样的内容.一般在有多个进程读写数据时可以使用这个标志.</li>
+<li><code>MSG_WAITALL</code>是recv函数的使用标志,表示等到所有的信息到达时才返回.使用这个标志的时候recv回一直阻塞,直到指定的条件满足,或者是发生了错误. 1)当读到了指定的字节时,函数正常返回.返回值等于len 2)当读到了文件的结尾时,函数正常返回.返回值小于len 3)当操作发生错误时,返回-1,且设置错误为相应的错误号(errno)。</li>
+</ol>
+<p>如果flags为0,则和read,write一样的操作。</p>
+<h2 id="workflow">workflow</h2>
+<center class="half">
+TCP:
+<img src="file://F:/software/Gridea_blog_resources/Gridea/post-images/1590256430475.gif">
+UDP:
+<img src="file://F:/software/Gridea_blog_resources/Gridea/post-images/1590256440650.png">
+</center>
+<h2 id="socket缓冲区">socket缓冲区</h2>
+<p>每个 socket 被创建后，都会分配两个缓冲区，输入缓冲区和输出缓冲区。<code>write()</code>/<code>send()</code> 并不立即向网络中传输数据，而是先将数据写入缓冲区中，再由TCP协议将数据从缓冲区发送到目标机器。一旦将数据写入到缓冲区，函数就可以成功返回，不管它们有没有到达目标机器，也不管它们何时被发送到网络，这些都是TCP协议负责的事情。TCP协议独立于 <code>write()</code>/<code>send()</code> 函数，数据有可能刚被写入缓冲区就发送到网络，也可能在缓冲区中不断积压，多次写入的数据被一次性发送到网络，这取决于当时的网络情况、当前线程是否空闲等诸多因素，不由程序员控制。<code>read()</code>/<code>recv()</code> 函数也是如此，也从输入缓冲区中读取数据，而不是直接从网络中读取。这些I/O缓冲区特性可整理如下：</p>
+<ol>
+<li>I/O缓冲区在每个TCP套接字中单独存在；</li>
+<li>I/O缓冲区在创建套接字时自动生成；</li>
+<li>即使关闭套接字也会继续传送输出缓冲区中遗留的数据；</li>
+<li>关闭套接字将丢失输入缓冲区中的数据。</li>
+</ol>
+<p>可以通过<code>getsockopt</code>和<code>setsockopt</code>来获取以及设置socket的某个特性。如下设置发送区buffer</p>
+<pre><code class="language-c++">//SOL_SOCKET is the socket layer itself. It is used for options that are protocol independent.
+getsockopt(socketFd, SOL_SOCKET, SO_SNDBUF, &amp;bufSize, &amp;bufSizeLen);
+setsockopt(scoktetFd, SOL_SOCKET, SO_SNDBUF, &amp;bufSize, sizeof(bufSize));
+</code></pre>
+<p>对于TCP套接字（默认阻塞），当使用 write()/send() 发送数据时：</p>
+<ol>
+<li>首先会检查缓冲区，如果缓冲区的可用空间长度小于要发送的数据，那么 write()/send() 会被阻塞(暂停执行)，直到缓冲区中的数据被发送到目标机器，腾出足够的空间，才唤醒 write()/send() 函数继续写入数据。</li>
+<li>如果TCP协议正在向网络发送数据，那么输出缓冲区会被锁定，不允许写入，write()/send() 也会被阻塞，直到数据发送完毕缓冲区解锁，write()/send() 才会被唤醒。</li>
+<li>如果要写入的数据大于缓冲区的最大长度，那么将分批写入。</li>
+<li>直到所有数据被写入缓冲区 write()/send() 才能返回。</li>
+</ol>
+<p>当使用 read()/recv() 读取数据时：</p>
+<ol>
+<li>首先会检查缓冲区，如果缓冲区中有数据，那么就读取，否则函数会被阻塞，直到网络上有数据到来。</li>
+<li>如果要读取的数据长度小于缓冲区中的数据长度，那么就不能一次性将缓冲区中的所有数据读出，剩余数据将不断积压，直到有 read()/recv() 函数再次读取。</li>
+<li>直到读取到数据后 read()/recv() 函数才会返回，否则就一直被阻塞。</li>
+</ol>
+<h2 id="getsockopt-setsockopt">getsockopt setsockopt</h2>
+<pre><code class="language-c++">#include &lt;sys/types.h&gt;
+#include &lt;sys/socket.h&gt;
+
+int getsockopt(int sockfd, int level, int optname,void *optval, socklen_t *optlen);
+int setsockopt(int sockfd, int level, int optname,const void *optval, socklen_t optlen);
+</code></pre>
+<p><code>sockfd</code>：指向一个打开的套接字描述符<br>
+<code>level</code>：通用套接字代码<br>
+<code>optname</code>：选项名字<br>
+<code>optval</code>：指向某个变量的指针，setsockopt从<em>optval中取得选项待设置的新值，getsockopt把已获取的选项当前值存放在</em>optval中。<br>
+<code>optlen</code>：*optval的大小由optlen指定，setsockopt是一个值参数，getsockopt是一个值-结果参数。</p>
+<p>成功执行时，返回0。失败返回-1，errno被设为以下的某个值</p>
+<ol>
+<li><code>EBADF</code>：sock不是有效的文件描述词</li>
+<li><code>EFAULT</code>：optval指向的内存并非有效的进程空间</li>
+<li><code>EINVAL</code>：在调用setsockopt()时，optlen无效</li>
+<li><code>ENOPROTOOPT</code>：指定的协议层不能识别选项</li>
+<li><code>ENOTSOCK</code>：sock描述的不是套接字</li>
+</ol>
+<p>level指定控制套接字的层次.可以取三种值:</p>
+<ol>
+<li>SOL_SOCKET:通用套接字选项.</li>
+<li>IPPROTO_IP:IP选项.</li>
+<li>IPPROTO_TCP:TCP选项.</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>optname</th>
+<th>说明</th>
+<th>数据类型</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SOL_SOCKET level</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>SO_BROADCAST</td>
+<td>允许发送广播数据</td>
+<td>int</td>
+</tr>
+<tr>
+<td>SO_DEBUG</td>
+<td>允许调试</td>
+<td>int</td>
+</tr>
+<tr>
+<td>SO_DONTROUTE</td>
+<td>不查找路由</td>
+<td>int</td>
+</tr>
+<tr>
+<td>SO_ERROR</td>
+<td>获得套接字错误</td>
+<td>int</td>
+</tr>
+<tr>
+<td>SO_KEEPALIVE</td>
+<td>保持连接</td>
+<td>int</td>
+</tr>
+<tr>
+<td>SO_LINGER</td>
+<td>延迟关闭连接</td>
+<td>struct linger</td>
+</tr>
+<tr>
+<td>SO_OOBINLINE</td>
+<td>带外数据放入正常数据流</td>
+<td>int</td>
+</tr>
+<tr>
+<td>SO_RCVBUF</td>
+<td>接收缓冲区大小</td>
+<td>int</td>
+</tr>
+<tr>
+<td>SO_SNDBUF</td>
+<td>发送缓冲区大小</td>
+<td>int</td>
+</tr>
+<tr>
+<td>SO_RCVLOWAT</td>
+<td>接收缓冲区下限</td>
+<td>int</td>
+</tr>
+<tr>
+<td>SO_SNDLOWAT</td>
+<td>发送缓冲区下限</td>
+<td>int</td>
+</tr>
+<tr>
+<td>SO_RCVTIMEO</td>
+<td>接收超时</td>
+<td>struct timeval</td>
+</tr>
+<tr>
+<td>SO_SNDTIMEO</td>
+<td>发送超时</td>
+<td>struct timeval</td>
+</tr>
+<tr>
+<td>SO_REUSERADDR</td>
+<td>允许重用本地地址和端口</td>
+<td>int</td>
+</tr>
+<tr>
+<td>SO_TYPE</td>
+<td>获得套接字类型</td>
+<td>int</td>
+</tr>
+<tr>
+<td>SO_BSDCOMPAT</td>
+<td>与BSD系统兼容</td>
+<td>int</td>
+</tr>
+<tr>
+<td>IPPROTO_IP level</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>IP_HDRINCL</td>
+<td>在数据包中包含IP首部</td>
+<td>int</td>
+</tr>
+<tr>
+<td>IP_OPTINOS</td>
+<td>IP首部选项</td>
+<td>int</td>
+</tr>
+<tr>
+<td>IP_TOS</td>
+<td>服务类型</td>
+<td>int</td>
+</tr>
+<tr>
+<td>IP_TTL</td>
+<td>生存时间</td>
+<td>int</td>
+</tr>
+<tr>
+<td>IPPRO_TCP level</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>TCP_MAXSEG</td>
+<td>TCP最大数据段的大小</td>
+<td>int</td>
+</tr>
+<tr>
+<td>TCP_NODELAY</td>
+<td>不使用Nagle算法</td>
+<td>int</td>
+</tr>
+</tbody>
+</table>
+<p>总结到这里想起来一个知识点，即我们要disable nagle算法.因为它会合并小的网络包，对于高频来讲，我们是不希望有延迟的，希望立刻发送。</p>
+<pre><code class="language-c++">int flags =1;
+setsockopt(sfd, SOL_TCP, TCP_NODELAY, &amp;flags, sizeof(flags));
+</code></pre>
+<p>另外，交易所也需要取消delay ack，这样能快速回应客户。</p>
+
+              </div>
+              <div class="toc-container">
+                <ul class="markdownIt-TOC">
+<li>
+<ul>
+<li><a href="#socket-type">socket type</a>
+<ul>
+<li><a href="#sock_stream">SOCK_STREAM</a></li>
+<li><a href="#sock_dgram">SOCK_DGRAM</a></li>
+</ul>
+</li>
+<li><a href="#socket-creation">socket creation</a></li>
+<li><a href="#bind">bind()</a>
+<ul>
+<li><a href="#sockaddr_in-vs-sockaddr">sockaddr_in vs sockaddr</a></li>
+</ul>
+</li>
+<li><a href="#connect">connect()</a></li>
+<li><a href="#listen">listen()</a></li>
+<li><a href="#accept">accept()</a></li>
+<li><a href="#write-send-read-recv">write() send() read() recv()</a></li>
+<li><a href="#workflow">workflow</a></li>
+<li><a href="#socket%E7%BC%93%E5%86%B2%E5%8C%BA">socket缓冲区</a></li>
+<li><a href="#getsockopt-setsockopt">getsockopt setsockopt</a></li>
+</ul>
+</li>
+</ul>
+
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://wangpifu.github.io/post/c-multithreading-programming-xue-xi-5/">
+              <h3 class="post-title">
+                c++ Multithreading programming 学习(5)
+              </h3>
+            </a>
+          </div>
+        
+
+        
+          
+            <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+<script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: 'c618ca9283439df7d7b5',
+    clientSecret: '9d9da4b14992b1b52b311e7f5a7ab89a9694b501',
+    repo: 'wangpifu.github.io',
+    owner: 'wangpifu',
+    admin: ['wangpifu'],
+    id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false  // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+          
+
+          
+        
+
+        <div class="site-footer">
+  Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a>
+  <a class="rss" href="https://wangpifu.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>

@@ -2,20 +2,530 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>https://wangpifu.github.io</id>
     <title>wangpifu</title>
-    <updated>2020-05-13T01:53:44.113Z</updated>
+    <updated>2020-05-23T20:32:36.201Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
     <link rel="alternate" href="https://wangpifu.github.io"/>
     <link rel="self" href="https://wangpifu.github.io/atom.xml"/>
-    <subtitle>而今迈步从头越</subtitle>
+    <subtitle>而今迈步从头越，去留肝胆两昆仑</subtitle>
     <logo>https://wangpifu.github.io/images/avatar.png</logo>
     <icon>https://wangpifu.github.io/favicon.ico</icon>
     <rights>All rights reserved 2020, wangpifu</rights>
+    <entry>
+        <title type="html"><![CDATA[unix socket 编程总结]]></title>
+        <id>https://wangpifu.github.io/post/unix-socket-bian-cheng-zong-jie/</id>
+        <link href="https://wangpifu.github.io/post/unix-socket-bian-cheng-zong-jie/">
+        </link>
+        <updated>2020-05-22T11:33:19.000Z</updated>
+        <content type="html"><![CDATA[<h2 id="socket-type">socket type</h2>
+<h3 id="sock_stream">SOCK_STREAM</h3>
+<p>SOCK_STREAM 是一种可靠的、双向的通信数据流，数据可以准确无误地到达另一台计算机，如果损坏或丢失，可以重新发送。因为它使用了 TCP 协议.流格式套接字的内部有一个缓冲区（也就是字符数组），通过 socket 传输的数据将保存到这个缓冲区。接收端在收到数据后并不一定立即读取，只要数据不超过缓冲区的容量，接收端有可能在缓冲区被填满以后一次性地读取，也可能分成好几次读取。</p>
+<h3 id="sock_dgram">SOCK_DGRAM</h3>
+<p>使用 UDP 协议,是一种不可靠的、不按顺序传递的、以追求速度为目的的套接字。数据的发送和接收是同步的，换句话说，接收次数应该和发送次数相同。</p>
+<h2 id="socket-creation">socket creation</h2>
+<p>在 Linux 下使用 &lt;sys/socket.h&gt; 头文件中 socket() 函数来创建套接字，原型为：<br>
+<code>int socket(int af, int type, int protocol);</code><br>
+af 为地址族（Address Family), 常用的有 <code>AF_INET</code> 和 <code>AF_INET6</code> 对应IPv4与IPv6。<br>
+type 为数据传输方式/套接字类型，常用的有 <code>SOCK_STREAM</code>（流格式套接字/面向连接的套接字） 和 <code>SOCK_DGRAM</code>（数据报套接字/无连接的套接字)。<br>
+protocol 表示传输协议，常用的有 <code>IPPROTO_TCP</code> 和 <code>IPPTOTO_UDP</code>，分别表示 TCP 传输协议和 UDP 传输协议。可以设为0，会通过type推导出需要什么协议。</p>
+<pre><code class="language-c++">int tcp_socket = socket(AF_INET, SOCK_STREAM, 0);
+int udp_socket = socket(AF_INET, SOCK_DGRAM, 0); 
+</code></pre>
+<h2 id="bind">bind()</h2>
+<p>bind() 函数的原型为：<br>
+<code>int bind(int sock, struct sockaddr *addr, socklen_t addrlen);</code><br>
+sock 为 socket 文件描述符，addr 为 sockaddr 结构体变量的指针，addrlen 为 addr 变量的大小，可由 sizeof() 计算得出。</p>
+<pre><code class="language-c++">int serv_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+struct sockaddr_in serv_addr;
+memset(&amp;serv_addr, 0, sizeof(serv_addr));
+serv_addr.sin_family = AF_INET;  //use IPv4
+serv_addr.sin_addr.s_addr = inet_addr(&quot;127.0.0.1&quot;);  //localhost
+serv_addr.sin_port = htons(1234);  //port
+
+bind(serv_sock, (struct sockaddr*)&amp;serv_addr, sizeof(serv_addr));
+</code></pre>
+<p>这里我们使用 <code>sockaddr_in</code> 结构体，然后再强制转换为 <code>sockaddr</code> 类型.</p>
+<h3 id="sockaddr_in-vs-sockaddr">sockaddr_in vs sockaddr</h3>
+<p><img src="https://wangpifu.github.io/post-images/1590204417418.jpg" alt="" loading="lazy"><br>
+<code>sockaddr</code> 和 <code>sockaddr_in</code> 的长度相同，都是16字节，只是将IP地址和端口号合并到一起，用一个成员 sa_data 表示。要想给 sa_data 赋值，必须同时指明IP地址和端口号，例如”127.0.0.1:80“，遗憾的是，没有相关函数将这个字符串转换成需要的形式，也就很难给 <code>sockaddr</code> 类型的变量赋值，所以使用 <code>sockaddr_in</code> 来代替。这两个结构体的长度相同，强制转换类型时不会丢失字节，也没有多余的字节。可以认为，<code>sockaddr</code> 是一种通用的结构体，可以用来保存多种类型的IP地址和端口号，而 <code>sockaddr_in</code> 是专门用来保存 IPv4 地址的结构体。另外还有 <code>sockaddr_in6</code>，用来保存 IPv6 地址</p>
+<pre><code class="language-c++">struct sockaddr_in{
+    sa_family_t        sin_family;     //地址族(Address Family) / 地址类型
+    uint16_t            sin_port;        //16位的端口号 0-65535
+    struct in_addr   sin_addr;       //32位IP地址
+    char                  sin_zero[8];    //不使用，一般用0填充
+};
+struct in_addr{
+    // inside &lt;netinet/in.h&gt;
+    // typedef uint32_t in_addr_t 
+    in_addr_t          s_addr;           //32位的IP地址
+};
+</code></pre>
+<p>s_addr 是一个整数，而IP地址是一个字符串，所以需要 inet_addr() 函数进行转换<br>
+<code>unsigned long ip = inet_addr(&quot;127.0.0.1&quot;); // ip will be 16777343</code></p>
+<h2 id="connect">connect()</h2>
+<p>connect() 函数用来建立连接，它的原型为：<br>
+<code>int connect(int sock, struct sockaddr *serv_addr, socklen_t addrlen);</code></p>
+<h2 id="listen">listen()</h2>
+<p>通过 listen() 函数可以让套接字进入被动监听状态，它的原型为：<br>
+<code>int listen(int sock, int backlog);</code><br>
+sock 为需要进入监听状态的套接字，backlog 为请求队列的最大长度。当套接字正在处理客户端请求时，如果有新的请求进来，套接字是没法处理的，只能把它放进缓冲区，待当前请求处理完毕后，再从缓冲区中读取出来处理。如果不断有新的请求进来，它们就按照先后顺序在缓冲区中排队，直到缓冲区满。这个缓冲区，就称为请求队列（Request Queue）。缓冲区的长度（能存放多少个客户端请求）可以通过 listen() 函数的 backlog 参数指定，如果将 backlog 的值设置为 SOMAXCONN,则为系统最大支持值。当请求队列满时，就不再接收新的请求，对于 Linux，客户端会收到 ECONNREFUSED 错误。注意：listen() 只是让套接字处于监听状态，并没有接收请求。接收请求需要使用 accept() 函数。</p>
+<h2 id="accept">accept()</h2>
+<p>当套接字处于监听状态时，可以通过 accept() 函数来接收客户端请求。它的原型为：<br>
+<code>int accept(int sock, struct sockaddr *addr, socklen_t *addrlen);</code><br>
+accept() 返回一个新的套接字来和客户端通信，addr 保存了客户端的IP地址和端口号，而 sock 是服务器端的套接字，要注意区分。后面和客户端通信时，要使用这个新生成的套接字，而不是原来服务器端的套接字。需要说明的是：listen() 只是让套接字进入监听状态，并没有真正接收客户端请求，listen() 后面的代码会继续执行，直到遇到 accept()。accept() 会阻塞程序执行（后面代码不能被执行），直到有新的请求到来。</p>
+<h2 id="write-send-read-recv">write() send() read() recv()</h2>
+<p><code>write</code> 函数原型：<br>
+<code>ssize_t write(int fd, const void*buf,size_t nbytes)</code><br>
+<code>write</code>函数将<code>buf</code>中的<code>nbytes</code>字节内容写入文件描述符fd.成功时返回写的字节数.失败时返回-1.并设置<code>errno</code>变量. 在网络程序中,当我们向套接字文件描述符写时有两可能：</p>
+<ol>
+<li><code>write</code>的返回值大于0,表示写了部分或者是全部的数据. 这样我们用一个while循环来不停的写入，但是循环过程中的buf参数和nbyte参数得由我们来更新。也就是说，网络写函数是不负责将全部数据写完之后在返回的。</li>
+<li>返回的值小于0,此时出现了错误.我们要根据错误类型来处理.如果错误为<code>EINTR</code>表示在写的时候出现了中断错误.如果为<code>EPIPE</code>表示网络连接出现了问题(对方已经关闭了连接)。</li>
+</ol>
+<p><code>read</code> 函数原型：<br>
+<code>ssize_t read(int fd,void *buf,size_t nbyte)</code><br>
+<code>read</code>函数是负责从fd中读取内容。当读成功时，<code>read</code>返回实际所读的字节数,如果返回的值是0 表示已经读到文件的结束了,小于0表示出现了错误。如果错误为<code>EINTR</code>说明读是由中断引起 的, 如果是<code>ECONNREST</code>表示网络连接出了问题.</p>
+<p><code>recv</code>和<code>send</code>函数提供了和read和write差不多的功能.不过它们提供了第四个参数来控制读写操作：<br>
+<code>int recv(int sockfd,void *buf,int len,int flags)</code><br>
+<code>int send(int sockfd,void *buf,int len,int flags)</code><br>
+前面的三个参数和read,write一样,第四个参数可以是0或者是以下的组合：</p>
+<ol>
+<li><code>MSG_DONTROUTE</code>:是send函数使用的标志.这个标志告诉IP.目的主机在本地网络上面,没有必要查找表.这个标志一般用网络诊断和路由程序里面.</li>
+<li><code>MSG_OOB</code>:表示接收和发送带外的数据</li>
+</ol>
+<blockquote>
+<p>(有些传输层协议具有带外(Out of Band,OOB)数据的概念,用于迅速通告对方本端发生的重要事件。因此，带外数据比普通数据（也称带内数据）有更高的优先级，它应该总是立即发送，而不论发送缓冲区是否有排队等待发送的普通数据。带外数据的传输可以使用一条独立的传输层连接，也可以映射到传输普通数据的连接中，TCP采用的是后者（postscript：前者应该怎么实现，应该比较复杂和消耗性能）。在实际应用中，带外数据的使用很少见，已知的仅有telnet、ftp等远程非活跃程序。</p>
+</blockquote>
+<ol start="3">
+<li><code>MSG_PEEK</code>:是recv函数的使用标志,表示只是从系统缓冲区中读取内容,而不清除系统缓冲区的内容.这样下次读的时候,仍然是一样的内容.一般在有多个进程读写数据时可以使用这个标志.</li>
+<li><code>MSG_WAITALL</code>是recv函数的使用标志,表示等到所有的信息到达时才返回.使用这个标志的时候recv回一直阻塞,直到指定的条件满足,或者是发生了错误. 1)当读到了指定的字节时,函数正常返回.返回值等于len 2)当读到了文件的结尾时,函数正常返回.返回值小于len 3)当操作发生错误时,返回-1,且设置错误为相应的错误号(errno)。</li>
+</ol>
+<p>如果flags为0,则和read,write一样的操作。</p>
+<h2 id="workflow">workflow</h2>
+<center class="half">
+TCP:
+<img src="file://F:/software/Gridea_blog_resources/Gridea/post-images/1590256430475.gif">
+UDP:
+<img src="file://F:/software/Gridea_blog_resources/Gridea/post-images/1590256440650.png">
+</center>
+<h2 id="socket缓冲区">socket缓冲区</h2>
+<p>每个 socket 被创建后，都会分配两个缓冲区，输入缓冲区和输出缓冲区。<code>write()</code>/<code>send()</code> 并不立即向网络中传输数据，而是先将数据写入缓冲区中，再由TCP协议将数据从缓冲区发送到目标机器。一旦将数据写入到缓冲区，函数就可以成功返回，不管它们有没有到达目标机器，也不管它们何时被发送到网络，这些都是TCP协议负责的事情。TCP协议独立于 <code>write()</code>/<code>send()</code> 函数，数据有可能刚被写入缓冲区就发送到网络，也可能在缓冲区中不断积压，多次写入的数据被一次性发送到网络，这取决于当时的网络情况、当前线程是否空闲等诸多因素，不由程序员控制。<code>read()</code>/<code>recv()</code> 函数也是如此，也从输入缓冲区中读取数据，而不是直接从网络中读取。这些I/O缓冲区特性可整理如下：</p>
+<ol>
+<li>I/O缓冲区在每个TCP套接字中单独存在；</li>
+<li>I/O缓冲区在创建套接字时自动生成；</li>
+<li>即使关闭套接字也会继续传送输出缓冲区中遗留的数据；</li>
+<li>关闭套接字将丢失输入缓冲区中的数据。</li>
+</ol>
+<p>可以通过<code>getsockopt</code>和<code>setsockopt</code>来获取以及设置socket的某个特性。如下设置发送区buffer</p>
+<pre><code class="language-c++">//SOL_SOCKET is the socket layer itself. It is used for options that are protocol independent.
+getsockopt(socketFd, SOL_SOCKET, SO_SNDBUF, &amp;bufSize, &amp;bufSizeLen);
+setsockopt(scoktetFd, SOL_SOCKET, SO_SNDBUF, &amp;bufSize, sizeof(bufSize));
+</code></pre>
+<p>对于TCP套接字（默认阻塞），当使用 write()/send() 发送数据时：</p>
+<ol>
+<li>首先会检查缓冲区，如果缓冲区的可用空间长度小于要发送的数据，那么 write()/send() 会被阻塞(暂停执行)，直到缓冲区中的数据被发送到目标机器，腾出足够的空间，才唤醒 write()/send() 函数继续写入数据。</li>
+<li>如果TCP协议正在向网络发送数据，那么输出缓冲区会被锁定，不允许写入，write()/send() 也会被阻塞，直到数据发送完毕缓冲区解锁，write()/send() 才会被唤醒。</li>
+<li>如果要写入的数据大于缓冲区的最大长度，那么将分批写入。</li>
+<li>直到所有数据被写入缓冲区 write()/send() 才能返回。</li>
+</ol>
+<p>当使用 read()/recv() 读取数据时：</p>
+<ol>
+<li>首先会检查缓冲区，如果缓冲区中有数据，那么就读取，否则函数会被阻塞，直到网络上有数据到来。</li>
+<li>如果要读取的数据长度小于缓冲区中的数据长度，那么就不能一次性将缓冲区中的所有数据读出，剩余数据将不断积压，直到有 read()/recv() 函数再次读取。</li>
+<li>直到读取到数据后 read()/recv() 函数才会返回，否则就一直被阻塞。</li>
+</ol>
+<h2 id="getsockopt-setsockopt">getsockopt setsockopt</h2>
+<pre><code class="language-c++">#include &lt;sys/types.h&gt;
+#include &lt;sys/socket.h&gt;
+
+int getsockopt(int sockfd, int level, int optname,void *optval, socklen_t *optlen);
+int setsockopt(int sockfd, int level, int optname,const void *optval, socklen_t optlen);
+</code></pre>
+<p><code>sockfd</code>：指向一个打开的套接字描述符<br>
+<code>level</code>：通用套接字代码<br>
+<code>optname</code>：选项名字<br>
+<code>optval</code>：指向某个变量的指针，setsockopt从<em>optval中取得选项待设置的新值，getsockopt把已获取的选项当前值存放在</em>optval中。<br>
+<code>optlen</code>：*optval的大小由optlen指定，setsockopt是一个值参数，getsockopt是一个值-结果参数。</p>
+<p>成功执行时，返回0。失败返回-1，errno被设为以下的某个值</p>
+<ol>
+<li><code>EBADF</code>：sock不是有效的文件描述词</li>
+<li><code>EFAULT</code>：optval指向的内存并非有效的进程空间</li>
+<li><code>EINVAL</code>：在调用setsockopt()时，optlen无效</li>
+<li><code>ENOPROTOOPT</code>：指定的协议层不能识别选项</li>
+<li><code>ENOTSOCK</code>：sock描述的不是套接字</li>
+</ol>
+<p>level指定控制套接字的层次.可以取三种值:</p>
+<ol>
+<li>SOL_SOCKET:通用套接字选项.</li>
+<li>IPPROTO_IP:IP选项.</li>
+<li>IPPROTO_TCP:TCP选项.</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>optname</th>
+<th>说明</th>
+<th>数据类型</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SOL_SOCKET level</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>SO_BROADCAST</td>
+<td>允许发送广播数据</td>
+<td>int</td>
+</tr>
+<tr>
+<td>SO_DEBUG</td>
+<td>允许调试</td>
+<td>int</td>
+</tr>
+<tr>
+<td>SO_DONTROUTE</td>
+<td>不查找路由</td>
+<td>int</td>
+</tr>
+<tr>
+<td>SO_ERROR</td>
+<td>获得套接字错误</td>
+<td>int</td>
+</tr>
+<tr>
+<td>SO_KEEPALIVE</td>
+<td>保持连接</td>
+<td>int</td>
+</tr>
+<tr>
+<td>SO_LINGER</td>
+<td>延迟关闭连接</td>
+<td>struct linger</td>
+</tr>
+<tr>
+<td>SO_OOBINLINE</td>
+<td>带外数据放入正常数据流</td>
+<td>int</td>
+</tr>
+<tr>
+<td>SO_RCVBUF</td>
+<td>接收缓冲区大小</td>
+<td>int</td>
+</tr>
+<tr>
+<td>SO_SNDBUF</td>
+<td>发送缓冲区大小</td>
+<td>int</td>
+</tr>
+<tr>
+<td>SO_RCVLOWAT</td>
+<td>接收缓冲区下限</td>
+<td>int</td>
+</tr>
+<tr>
+<td>SO_SNDLOWAT</td>
+<td>发送缓冲区下限</td>
+<td>int</td>
+</tr>
+<tr>
+<td>SO_RCVTIMEO</td>
+<td>接收超时</td>
+<td>struct timeval</td>
+</tr>
+<tr>
+<td>SO_SNDTIMEO</td>
+<td>发送超时</td>
+<td>struct timeval</td>
+</tr>
+<tr>
+<td>SO_REUSERADDR</td>
+<td>允许重用本地地址和端口</td>
+<td>int</td>
+</tr>
+<tr>
+<td>SO_TYPE</td>
+<td>获得套接字类型</td>
+<td>int</td>
+</tr>
+<tr>
+<td>SO_BSDCOMPAT</td>
+<td>与BSD系统兼容</td>
+<td>int</td>
+</tr>
+<tr>
+<td>IPPROTO_IP level</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>IP_HDRINCL</td>
+<td>在数据包中包含IP首部</td>
+<td>int</td>
+</tr>
+<tr>
+<td>IP_OPTINOS</td>
+<td>IP首部选项</td>
+<td>int</td>
+</tr>
+<tr>
+<td>IP_TOS</td>
+<td>服务类型</td>
+<td>int</td>
+</tr>
+<tr>
+<td>IP_TTL</td>
+<td>生存时间</td>
+<td>int</td>
+</tr>
+<tr>
+<td>IPPRO_TCP level</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>TCP_MAXSEG</td>
+<td>TCP最大数据段的大小</td>
+<td>int</td>
+</tr>
+<tr>
+<td>TCP_NODELAY</td>
+<td>不使用Nagle算法</td>
+<td>int</td>
+</tr>
+</tbody>
+</table>
+<p>总结到这里想起来一个知识点，即我们要disable nagle算法.因为它会合并小的网络包，对于高频来讲，我们是不希望有延迟的，希望立刻发送。</p>
+<pre><code class="language-c++">int flags =1;
+setsockopt(sfd, SOL_TCP, TCP_NODELAY, &amp;flags, sizeof(flags));
+</code></pre>
+<p>另外，交易所也需要取消delay ack，这样能快速回应客户。</p>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[c++ Multithreading programming 学习(5)]]></title>
+        <id>https://wangpifu.github.io/post/c-multithreading-programming-xue-xi-5/</id>
+        <link href="https://wangpifu.github.io/post/c-multithreading-programming-xue-xi-5/">
+        </link>
+        <updated>2020-05-12T01:59:17.000Z</updated>
+        <content type="html"><![CDATA[<p>这一节我来学习一下一些更高级的用法。首先回想一下以前我们是如何进行跨线程取值的，我们需要通过共享的变量，用condition varible来提醒其他线程取值，或者通过mutex以及共享变量来组合传递变量的更改状态。或者也可以通过future promise来完成。</p>
+<table>
+<thead>
+<tr>
+<th>API</th>
+<th>C++标准</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>async</td>
+<td>C++11</td>
+<td>异步运行一个函数，并返回保有其结果的std::future</td>
+</tr>
+<tr>
+<td>future</td>
+<td>C++11</td>
+<td>等待被异步设置的值</td>
+</tr>
+<tr>
+<td>packaged_task</td>
+<td>C++11</td>
+<td>打包一个函数，存储其返回值以进行异步获取</td>
+</tr>
+<tr>
+<td>promise</td>
+<td>C++11</td>
+<td>存储一个值以进行异步获取</td>
+</tr>
+<tr>
+<td>shared_future</td>
+<td>C++11</td>
+<td>等待被异步设置的值（可能为其他 future 所引用）</td>
+</tr>
+</tbody>
+</table>
+<h2 id="future-promise">future &amp; promise</h2>
+<ul>
+<li>promise non-copyable， moveable</li>
+<li>future also non-copyable but can become a shared_future, which is copyable</li>
+<li>promise 只能设置value，不能读取</li>
+<li>future 只能读value，不能设置<br>
+他们的工作流程如图：<br>
+<img src="https://wangpifu.github.io/post-images/1589391652214.jpg" alt="" loading="lazy"><br>
+线程1创建<code>promise</code>对象，并从该<code>promise</code>对象中获得对应future对象。线程1将<code>promise</code>对象传递给线程2，继续自己的工作直到堵塞在<code>future::get()</code>。线程2接受传入的<code>promise</code>对象，通过<code>set_value()</code>(或其他set函数)设定特定值，然后继续自己其他的工作。一旦将结果设置到<code>promise</code>上，其相关联的<code>future</code>对象就会处于就绪状态。需要注意的是，<code>future</code>对象只要被一个线程通过get()取值，再之后就没有可获取的值了，如果从多个线程调用<code>get()</code>会导致竞争，undefined behavior。如果需要从多个线程获取future结果需要使用<code>shared_future</code>。</li>
+</ul>
+<h3 id="example">example</h3>
+<pre><code class="language-c++">#include &lt;future&gt;
+#include &lt;iostream&gt;
+#include &lt;thread&gt;
+#include &lt;utility&gt;
+
+void multiplier(std::promise&lt;int&gt;&amp;&amp; intPromise, int a, int b){
+  intPromise.set_value(a*b);
+}
+
+void divider() (std::promise&lt;int&gt;&amp;&amp; intPromise, int a, int b) {
+    intPromise.set_value(a/b);
+  }
+
+int main(){
+  int a= 20;
+  int b= 10;
+
+  std::cout &lt;&lt; std::endl;
+  // define the promises
+  std::promise&lt;int&gt; prodPromise;
+  std::promise&lt;int&gt; divPromise;
+  // get the futures
+  std::future&lt;int&gt; prodFutureResult= prodPromise.get_future();
+  std::future&lt;int&gt; divFutureResult= divPromise.get_future();
+  // calculate the result in a separat thread
+  std::thread prodThread(multiplier,std::move(prodPromise),a,b);
+  std::thread divThread(divider,std::move(divPromise),a,b);
+  // get the result
+  std::cout &lt;&lt; &quot;20*10= &quot; &lt;&lt; prodFutureResult.get() &lt;&lt; std::endl;
+  std::cout &lt;&lt; &quot;20/10= &quot; &lt;&lt; divFutureResult.get() &lt;&lt; std::endl;
+  prodThread.join();
+  divThread.join();
+  std::cout &lt;&lt; std::endl;
+}
+</code></pre>
+<h2 id="packaged_task">packaged_task</h2>
+<p>在一些业务中，我们可能会有很多的任务需要调度。这时我们常常会设计出任务队列和线程池的结构。此时，就可以使用<code>packaged_task</code>来包装任务。<code>packaged_task</code>绑定到一个函数或者可调用对象上。当它被调用时，它就会调用其绑定的函数或者可调用对象。并且，可以通过与之相关联的<code>future</code>来获取任务的结果。调度程序只需要处理<code>packaged_task</code>，而非各个函数。<br>
+<code>packaged_task</code>对象是一个可调用对象，它可以被封装成一个<code>std::fucntion</code>，或者作为线程函数传递给<code>std::thread</code>，或者直接调用。<code>packaged_task</code>中可以传入函数对象，函数指针，lambda函数等。注意，这些函数并不是在<code>package_task</code>构造时被执行，需要手动invoke，才能执行。可以在当前线程执行，也可以被move到其他线程。</p>
+<h3 id="example-2">example</h3>
+<pre><code class="language-c++">double concurrent_worker(int min, int max) {
+  double sum = 0;
+  for (int i = min; i &lt;= max; i++) {
+    sum += sqrt(i);
+  }
+  return sum;
+}
+
+double concurrent_task(int min, int max) {
+  vector&lt;future&lt;double&gt;&gt; results; // ①
+
+  unsigned concurrent_count = thread::hardware_concurrency();
+  min = 0;
+  for (int i = 0; i &lt; concurrent_count; i++) { // ②
+    packaged_task&lt;double(int, int)&gt; task(concurrent_worker); // ③
+    results.push_back(task.get_future()); // ④
+
+    int range = max / concurrent_count * (i + 1);
+    thread t(std::move(task), min, range); // ⑤
+    t.detach();
+
+    min = range + 1;
+  }
+
+  cout &lt;&lt; &quot;threads create finish&quot; &lt;&lt; endl;
+  double sum = 0;
+  for (auto&amp; r : results) {
+    sum += r.get(); // ⑥
+  }
+  return sum;
+}
+
+int main() {
+  auto start_time = chrono::steady_clock::now();
+
+  double r = concurrent_task(0, MAX);
+
+  auto end_time = chrono::steady_clock::now();
+  auto ms = chrono::duration_cast&lt;chrono::milliseconds&gt;(end_time - start_time).count();
+  cout &lt;&lt; &quot;Concurrent task finish, &quot; &lt;&lt; ms &lt;&lt; &quot; ms consumed, Result: &quot; &lt;&lt; r &lt;&lt; endl;
+  return 0;
+}
+</code></pre>
+<p>在这段代码中：</p>
+<ol>
+<li>首先创建一个集合来存储future对象。我们将用它来获取任务的结果。</li>
+<li>同样的，根据CPU的情况来创建线程的数量。</li>
+<li>将任务包装成packaged_task。请注意，由于concurrent_worker被包装成了任务，我们无法直获取它的return值。而是要通过future对象来获取。</li>
+<li>获取任务关联的future对象，并将其存入集合中。</li>
+<li>通过一个新的线程来执行任务，并传入需要的参数。</li>
+<li>通过future集合，逐个获取每个任务的计算结果，将其累加。这里r.get()获取到的就是每个任务中concurrent_worker的返回值。</li>
+</ol>
+<h2 id="async">async</h2>
+<p>async 是更上层的封装</p>
+<pre><code class="language-c++">template&lt; class Function, class... Args &gt;
+std::future&lt;std::invoke_result_t&lt;std::decay_t&lt;Function&gt;, 
+                                 std::decay_t&lt;Args&gt;...&gt;&gt;
+    async( std::launch policy, Function&amp;&amp; f, Args&amp;&amp;... args );
+
+template&lt; class Function, class... Args&gt;
+std::future&lt;std::invoke_result_t&lt;std::decay_t&lt;Function&gt;, 
+                                              std::decay_t&lt;Args&gt;...&gt;&gt;
+    async( Function&amp;&amp; f, Args&amp;&amp;... args );
+</code></pre>
+<p><code>std::launch</code> <code>policy</code> 有两种：<code>async</code> 或 <code>deferred</code>。两者的区别在于，<code>async</code>是在新线程中异步执行，通过返回的<code>future</code>的<code>get</code>函数来取值。而<code>deferred</code> 是在当前线程中同步执行，但请注意，并不是立即执行，而是延后到<code>get</code>函数被调用的时候才执行，这种取值的行为又被称为lazy evaluation。没有std::launch的重载版本表现如同以 policy 为 <code>std::launch::async</code> | <code>std::launch::deferred</code> 调用  。换言之， f 可能执行于另一线程，或者它可能在查询产生的 <code>std::future</code> 的值时同步运行。</p>
+<h3 id="example-3">example</h3>
+<pre><code class="language-c++">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+#include &lt;algorithm&gt;
+#include &lt;numeric&gt;
+#include &lt;future&gt;
+#include &lt;string&gt;
+#include &lt;mutex&gt;
+ 
+std::mutex m;
+struct X {
+    void foo(int i, const std::string&amp; str) {
+        std::lock_guard&lt;std::mutex&gt; lk(m);
+        std::cout &lt;&lt; str &lt;&lt; ' ' &lt;&lt; i &lt;&lt; '\n';
+    }
+    void bar(const std::string&amp; str) {
+        std::lock_guard&lt;std::mutex&gt; lk(m);
+        std::cout &lt;&lt; str &lt;&lt; '\n';
+    }
+    int operator()(int i) {
+        std::lock_guard&lt;std::mutex&gt; lk(m);
+        std::cout &lt;&lt; i &lt;&lt; '\n';
+        return i + 10;
+    }
+};
+ 
+template &lt;typename RandomIt&gt;
+int parallel_sum(RandomIt beg, RandomIt end)
+{
+    auto len = end - beg;
+    if (len &lt; 1000)
+        return std::accumulate(beg, end, 0);
+ 
+    RandomIt mid = beg + len/2;
+    auto handle = std::async(std::launch::async,
+                             parallel_sum&lt;RandomIt&gt;, mid, end);
+    int sum = parallel_sum(beg, mid);
+    return sum + handle.get();
+}
+ 
+int main()
+{
+    std::vector&lt;int&gt; v(10000, 1);
+    std::cout &lt;&lt; &quot;The sum is &quot; &lt;&lt; parallel_sum(v.begin(), v.end()) &lt;&lt; '\n';
+ 
+    X x;
+    // Calls (&amp;x)-&gt;foo(42, &quot;Hello&quot;) with default policy:
+    // may print &quot;Hello 42&quot; concurrently or defer execution
+    auto a1 = std::async(&amp;X::foo, &amp;x, 42, &quot;Hello&quot;);
+    // Calls x.bar(&quot;world!&quot;) with deferred policy
+    // prints &quot;world!&quot; when a2.get() or a2.wait() is called
+    auto a2 = std::async(std::launch::deferred, &amp;X::bar, x, &quot;world!&quot;);
+    // Calls X()(43); with async policy
+    // prints &quot;43&quot; concurrently
+    auto a3 = std::async(std::launch::async, X(), 43);
+    a2.wait();                     // prints &quot;world!&quot;
+    std::cout &lt;&lt; a3.get() &lt;&lt; '\n'; // prints &quot;53&quot;
+} // if a1 is not done at this point, destructor of a1 prints &quot;Hello 42&quot; here
+</code></pre>
+]]></content>
+    </entry>
     <entry>
         <title type="html"><![CDATA[CMake 初探]]></title>
         <id>https://wangpifu.github.io/post/cmake-xue-xi-ji-yi-ci-yun-wei-shi-zhan/</id>
         <link href="https://wangpifu.github.io/post/cmake-xue-xi-ji-yi-ci-yun-wei-shi-zhan/">
         </link>
-        <updated>2020-05-06T03:42:43.000Z</updated>
+        <updated>2020-05-05T15:42:43.000Z</updated>
         <content type="html"><![CDATA[<p>今天兴致勃勃地写了一些自己的底层socket库代码，用到了uriparser<code>#include &lt;uriparser/Uri.h&gt;</code>，在<code>CmakeLists.tx</code>t里写了<code>find_package(UriParser)</code>然而在跑cmake时却说找不到这个库，我一直对cmake是怎么找链接库不太了解，刚好趁这个机会研究一下。<br>
 首先我很好奇的是我以前用到了<code>boost</code>和<code>gtest</code>，都是直接<code>find_package</code>就找到了，为什么这次不行呢。原来cmake会先在自带的模块查找，这个模块路径一般是<code>/usr/share/cmake/Modules</code>。拿Gtest来说，cmake有<code>FindGtest.cmake</code>在上述路径，所以每当我们使用<code>find_package</code>时，他就会调用这个模块找到外部库。<br>
 那么对于没有自带模块的外部库要如何查找呢。我们需要自己写一个<code>Findxxx.cmake</code>，或者在网上找一找看有没有人写好。我是在网上找了一份，因为自己不会</p>
@@ -60,7 +570,7 @@ endif ()
      ${CMAKE_SOURCE_DIR}/cmake
      ${CMAKE_MODULE_PATH})
 </code></pre>
-<p>在需要使用uriparser的子项目CMakeLists.txt中定义<code>target_link_libraries(subproj PUBLIC ${URIPARSER_INCLUDE_DIR})</code>即可。</p>
+<p>在需要使用uriparser的子项目CMakeLists.txt中定义<code>target_link_libraries(subproj PUBLIC ${URIPARSER_LIBRARY})</code>即可。</p>
 ]]></content>
     </entry>
     <entry>
@@ -68,7 +578,7 @@ endif ()
         <id>https://wangpifu.github.io/post/c/</id>
         <link href="https://wangpifu.github.io/post/c/">
         </link>
-        <updated>2020-05-03T03:25:43.000Z</updated>
+        <updated>2020-05-02T15:25:43.000Z</updated>
         <content type="html"><![CDATA[<p>先放一张c++ 特性在不同版本的线路图：<br>
 <img src="https://wangpifu.github.io/post-images/1588735714078.png" alt="" loading="lazy"></p>
 <h2 id="线程创建">线程创建</h2>
@@ -866,6 +1376,15 @@ int pthread_getaffinity_np(pthread_t thread, size_t cpusetsize, cpu_set_t *cpuse
 <p>现代cpu会有多个core，每个core可能会支持两个线程。可以通过<code>lscpu</code> 或者<code>lstopo</code> 查看。比如这张网上的图片。<br>
 <img src="https://wangpifu.github.io/post-images/1588961186982.png" alt="" loading="lazy"><br>
 在一些强大的工作站上会有不止一个scoket，比如我工作的机器有两个sockets，每个socket有8个core。如果hyperthreading(HT) enabled,那就将有32个hardware thread. 他们处在不同的numa（非统一内存访问架构）下，即某些cpu之间松散连接着甚至不共享memory and bus。那么hardware thread共享什么呢，有怎么关系到我们的程序呢？看上图，每个core内的两个threads会共享L1 和 L2 cache，同一个socket下的所有核会共享L3。 对于multi-socket机器，通常来讲每个socket有自己L3cache。对于NUMA，每个processor会访问自己的DRAM,不同processor之间通过一些通信机制来互相访问（QPI?）. 可以看到HT仅仅是在物理核心上使用了两个物理任务描述符，却没有增加实际的物理计算能力。 他的好处在于如果两个程序被调度到了同一个core，他们可以共享cache和TLB来降低任务切换开销。但是如果两个程序需要抢夺物理执行资源，那么反而会增加延时。对于低延迟交易来讲，我认为disable这个更好，因为它会损害性能增高延迟。但是对于互联网来讲，这个可以提高吞吐量，所以在互联网业务中，可以依据具体业务决定是否enable。对于不同numa来说，他们访问彼此的cache要明显该与访问自己的cache， 可以通过命令<code>numactl -H</code>查看，这给我们的启发是尽量让相关的任务处在同一个numa node下。</p>
+<h3 id="查看cpu信息">查看cpu信息</h3>
+<p>查看处理器核数：<code>cat /proc/cpuinfo | grep &quot;cpu cores&quot; | uniq</code> 即每个物理处理器的core的个数，例如Intel(R) Xeon(R) CPU E5-2690 @2.90GHz在每个socket上有8 cores<br>
+查看逻辑处理器核数 ：<code>cat /proc/cpuinfo</code>， 如果siblings和cpu cores一致，则不支持超线程<br>
+查看物理处理器封装id：<code>cat /proc/cpuinfo | grep &quot;physical id&quot; | sort | uniq | wc -l</code> 例如Intel(R) Xeon(R) CPU E5-2690 @2.90GHz 有两个&quot;物理处理器封装&quot;<br>
+查看逻辑处理器ID: <code>cat /proc/cpuinfo | grep &quot;processor&quot; | wc -l</code> 例如Intel(R) Xeon(R) CPU E5-2690 @2.90GHz 没有开超线程，他有两个物理处理器封装。每个封装有8个core，则一共含有16个core/逻辑处理器（如果开了HT就是32）.其id从0 -15.</p>
+<h2 id="线程独占">线程独占</h2>
+<p>即使将线程绑定到了某个core，系统依然可能将其他任务调度到这个核，为了进一步减少其他任务对这个线程的影响，我们可以将这个core从内核调度系统中剥离。<br>
+在 <code>/boot/grub2.cfg</code>中输入<code>isolcpu=11,12</code>或者你想剥离的cpu id，这样系统启动后将不会使用这两个core， 当然，通过taskset我们还是可以指定一些程序在这些核运行。<br>
+或者换个思路，我们将init.d限制在core 0， 这样由它产生的所有进程都会运行在这个core上，而对于一些特定的进程，我们可以指定他们到其他core上。我们可以<code>default_affinity=0</code>或者<code>init=/usr/bin/numactl -m 0 -c 0 /sbin/init</code>。后者比前者好因为它同时绑定了core 0 并设置了numa policy 表明更偏爱node 0 的memory allocation。<code>taskset -pc 1</code>来看我们确实设置成功。需要注意如果一个进程有RT优先级的话会锁住，所以对于这样的进程要在其他核运行。</p>
 <h2 id="reference">Reference</h2>
 <p>https://zhuanlan.zhihu.com/p/33324549<br>
 https://zhuanlan.zhihu.com/p/33621500<br>

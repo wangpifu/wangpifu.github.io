@@ -3,7 +3,7 @@
     <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>cpu affinity 亲和性 | wangpifu</title>
-<link rel="shortcut icon" href="https://wangpifu.github.io/favicon.ico?v=1589334809586">
+<link rel="shortcut icon" href="https://wangpifu.github.io/favicon.ico?v=1590265928321">
 <link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
 <link rel="stylesheet" href="https://wangpifu.github.io/styles/main.css">
 <link rel="alternate" type="application/atom+xml" title="cpu affinity 亲和性 | wangpifu - Atom Feed" href="https://wangpifu.github.io/atom.xml">
@@ -32,13 +32,13 @@ cpu affinity 就是让某个进程/线程绑定在某个cpu(core)上，使其尽
       <div class="main-content">
         <div class="site-header">
   <a href="https://wangpifu.github.io">
-  <img class="avatar" src="https://wangpifu.github.io/images/avatar.png?v=1589334809586" alt="">
+  <img class="avatar" src="https://wangpifu.github.io/images/avatar.png?v=1590265928321" alt="">
   </a>
   <h1 class="site-title">
     wangpifu
   </h1>
   <p class="site-description">
-    而今迈步从头越
+    而今迈步从头越，去留肝胆两昆仑
   </p>
   <div class="menu-container">
     
@@ -92,7 +92,7 @@ cpu affinity 就是让某个进程/线程绑定在某个cpu(core)上，使其尽
                 2020-04-29
               </span>
               <span>
-                5 min read
+                7 min read
               </span>
               
                 <a href="https://wangpifu.github.io/tag/flVdHa741/" class="post-tag">
@@ -147,6 +147,15 @@ int pthread_getaffinity_np(pthread_t thread, size_t cpusetsize, cpu_set_t *cpuse
 <p>现代cpu会有多个core，每个core可能会支持两个线程。可以通过<code>lscpu</code> 或者<code>lstopo</code> 查看。比如这张网上的图片。<br>
 <img src="https://wangpifu.github.io/post-images/1588961186982.png" alt="" loading="lazy"><br>
 在一些强大的工作站上会有不止一个scoket，比如我工作的机器有两个sockets，每个socket有8个core。如果hyperthreading(HT) enabled,那就将有32个hardware thread. 他们处在不同的numa（非统一内存访问架构）下，即某些cpu之间松散连接着甚至不共享memory and bus。那么hardware thread共享什么呢，有怎么关系到我们的程序呢？看上图，每个core内的两个threads会共享L1 和 L2 cache，同一个socket下的所有核会共享L3。 对于multi-socket机器，通常来讲每个socket有自己L3cache。对于NUMA，每个processor会访问自己的DRAM,不同processor之间通过一些通信机制来互相访问（QPI?）. 可以看到HT仅仅是在物理核心上使用了两个物理任务描述符，却没有增加实际的物理计算能力。 他的好处在于如果两个程序被调度到了同一个core，他们可以共享cache和TLB来降低任务切换开销。但是如果两个程序需要抢夺物理执行资源，那么反而会增加延时。对于低延迟交易来讲，我认为disable这个更好，因为它会损害性能增高延迟。但是对于互联网来讲，这个可以提高吞吐量，所以在互联网业务中，可以依据具体业务决定是否enable。对于不同numa来说，他们访问彼此的cache要明显该与访问自己的cache， 可以通过命令<code>numactl -H</code>查看，这给我们的启发是尽量让相关的任务处在同一个numa node下。</p>
+<h3 id="查看cpu信息">查看cpu信息</h3>
+<p>查看处理器核数：<code>cat /proc/cpuinfo | grep &quot;cpu cores&quot; | uniq</code> 即每个物理处理器的core的个数，例如Intel(R) Xeon(R) CPU E5-2690 @2.90GHz在每个socket上有8 cores<br>
+查看逻辑处理器核数 ：<code>cat /proc/cpuinfo</code>， 如果siblings和cpu cores一致，则不支持超线程<br>
+查看物理处理器封装id：<code>cat /proc/cpuinfo | grep &quot;physical id&quot; | sort | uniq | wc -l</code> 例如Intel(R) Xeon(R) CPU E5-2690 @2.90GHz 有两个&quot;物理处理器封装&quot;<br>
+查看逻辑处理器ID: <code>cat /proc/cpuinfo | grep &quot;processor&quot; | wc -l</code> 例如Intel(R) Xeon(R) CPU E5-2690 @2.90GHz 没有开超线程，他有两个物理处理器封装。每个封装有8个core，则一共含有16个core/逻辑处理器（如果开了HT就是32）.其id从0 -15.</p>
+<h2 id="线程独占">线程独占</h2>
+<p>即使将线程绑定到了某个core，系统依然可能将其他任务调度到这个核，为了进一步减少其他任务对这个线程的影响，我们可以将这个core从内核调度系统中剥离。<br>
+在 <code>/boot/grub2.cfg</code>中输入<code>isolcpu=11,12</code>或者你想剥离的cpu id，这样系统启动后将不会使用这两个core， 当然，通过taskset我们还是可以指定一些程序在这些核运行。<br>
+或者换个思路，我们将init.d限制在core 0， 这样由它产生的所有进程都会运行在这个core上，而对于一些特定的进程，我们可以指定他们到其他core上。我们可以<code>default_affinity=0</code>或者<code>init=/usr/bin/numactl -m 0 -c 0 /sbin/init</code>。后者比前者好因为它同时绑定了core 0 并设置了numa policy 表明更偏爱node 0 的memory allocation。<code>taskset -pc 1</code>来看我们确实设置成功。需要注意如果一个进程有RT优先级的话会锁住，所以对于这样的进程要在其他核运行。</p>
 <h2 id="reference">Reference</h2>
 <p>https://zhuanlan.zhihu.com/p/33324549<br>
 https://zhuanlan.zhihu.com/p/33621500<br>
@@ -158,7 +167,12 @@ https://eli.thegreenplace.net/2016/c11-threads-affinity-and-hyperthreading/</p>
 <li>
 <ul>
 <li><a href="#cpu-affinity">CPU Affinity</a></li>
-<li><a href="#hyperthreading-numa">Hyperthreading &amp; NUMA</a></li>
+<li><a href="#hyperthreading-numa">Hyperthreading &amp; NUMA</a>
+<ul>
+<li><a href="#%E6%9F%A5%E7%9C%8Bcpu%E4%BF%A1%E6%81%AF">查看cpu信息</a></li>
+</ul>
+</li>
+<li><a href="#%E7%BA%BF%E7%A8%8B%E7%8B%AC%E5%8D%A0">线程独占</a></li>
 <li><a href="#reference">Reference</a></li>
 </ul>
 </li>

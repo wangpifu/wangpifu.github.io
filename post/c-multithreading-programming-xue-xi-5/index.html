@@ -1,0 +1,449 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>c++ Multithreading programming 学习(5) | wangpifu</title>
+<link rel="shortcut icon" href="https://wangpifu.github.io/favicon.ico?v=1590265928321">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://wangpifu.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="c++ Multithreading programming 学习(5) | wangpifu - Atom Feed" href="https://wangpifu.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-164999139-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-164999139-1');
+</script>
+
+
+    <meta name="description" content="这一节我来学习一下一些更高级的用法。首先回想一下以前我们是如何进行跨线程取值的，我们需要通过共享的变量，用condition varible来提醒其他线程取值，或者通过mutex以及共享变量来组合传递变量的更改状态。或者也可以通过futur..." />
+    <meta name="keywords" content="concurrency,multithreading,多线程,c++" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://wangpifu.github.io">
+  <img class="avatar" src="https://wangpifu.github.io/images/avatar.png?v=1590265928321" alt="">
+  </a>
+  <h1 class="site-title">
+    wangpifu
+  </h1>
+  <p class="site-description">
+    而今迈步从头越，去留肝胆两昆仑
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          博客
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          标签
+        </a>
+      
+    
+      
+        <a href="/post/about" class="menu">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              c++ Multithreading programming 学习(5)
+            </h2>
+            <div class="post-info">
+              <span>
+                2020-05-11
+              </span>
+              <span>
+                9 min read
+              </span>
+              
+                <a href="https://wangpifu.github.io/tag/flVdHa741/" class="post-tag">
+                  # concurrency
+                </a>
+              
+                <a href="https://wangpifu.github.io/tag/mV7u4u4de/" class="post-tag">
+                  # multithreading
+                </a>
+              
+                <a href="https://wangpifu.github.io/tag/tVytL49B8e/" class="post-tag">
+                  # 多线程
+                </a>
+              
+                <a href="https://wangpifu.github.io/tag/FuOuG11onv/" class="post-tag">
+                  # c++
+                </a>
+              
+            </div>
+            
+              <img class="post-feature-image" src="https://wangpifu.github.io/post-images/c-multithreading-programming-xue-xi-1.jpg" alt="">
+            
+            <div class="post-content-wrapper">
+              <div class="post-content">
+                <p>这一节我来学习一下一些更高级的用法。首先回想一下以前我们是如何进行跨线程取值的，我们需要通过共享的变量，用condition varible来提醒其他线程取值，或者通过mutex以及共享变量来组合传递变量的更改状态。或者也可以通过future promise来完成。</p>
+<table>
+<thead>
+<tr>
+<th>API</th>
+<th>C++标准</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>async</td>
+<td>C++11</td>
+<td>异步运行一个函数，并返回保有其结果的std::future</td>
+</tr>
+<tr>
+<td>future</td>
+<td>C++11</td>
+<td>等待被异步设置的值</td>
+</tr>
+<tr>
+<td>packaged_task</td>
+<td>C++11</td>
+<td>打包一个函数，存储其返回值以进行异步获取</td>
+</tr>
+<tr>
+<td>promise</td>
+<td>C++11</td>
+<td>存储一个值以进行异步获取</td>
+</tr>
+<tr>
+<td>shared_future</td>
+<td>C++11</td>
+<td>等待被异步设置的值（可能为其他 future 所引用）</td>
+</tr>
+</tbody>
+</table>
+<h2 id="future-promise">future &amp; promise</h2>
+<ul>
+<li>promise non-copyable， moveable</li>
+<li>future also non-copyable but can become a shared_future, which is copyable</li>
+<li>promise 只能设置value，不能读取</li>
+<li>future 只能读value，不能设置<br>
+他们的工作流程如图：<br>
+<img src="https://wangpifu.github.io/post-images/1589391652214.jpg" alt="" loading="lazy"><br>
+线程1创建<code>promise</code>对象，并从该<code>promise</code>对象中获得对应future对象。线程1将<code>promise</code>对象传递给线程2，继续自己的工作直到堵塞在<code>future::get()</code>。线程2接受传入的<code>promise</code>对象，通过<code>set_value()</code>(或其他set函数)设定特定值，然后继续自己其他的工作。一旦将结果设置到<code>promise</code>上，其相关联的<code>future</code>对象就会处于就绪状态。需要注意的是，<code>future</code>对象只要被一个线程通过get()取值，再之后就没有可获取的值了，如果从多个线程调用<code>get()</code>会导致竞争，undefined behavior。如果需要从多个线程获取future结果需要使用<code>shared_future</code>。</li>
+</ul>
+<h3 id="example">example</h3>
+<pre><code class="language-c++">#include &lt;future&gt;
+#include &lt;iostream&gt;
+#include &lt;thread&gt;
+#include &lt;utility&gt;
+
+void multiplier(std::promise&lt;int&gt;&amp;&amp; intPromise, int a, int b){
+  intPromise.set_value(a*b);
+}
+
+void divider() (std::promise&lt;int&gt;&amp;&amp; intPromise, int a, int b) {
+    intPromise.set_value(a/b);
+  }
+
+int main(){
+  int a= 20;
+  int b= 10;
+
+  std::cout &lt;&lt; std::endl;
+  // define the promises
+  std::promise&lt;int&gt; prodPromise;
+  std::promise&lt;int&gt; divPromise;
+  // get the futures
+  std::future&lt;int&gt; prodFutureResult= prodPromise.get_future();
+  std::future&lt;int&gt; divFutureResult= divPromise.get_future();
+  // calculate the result in a separat thread
+  std::thread prodThread(multiplier,std::move(prodPromise),a,b);
+  std::thread divThread(divider,std::move(divPromise),a,b);
+  // get the result
+  std::cout &lt;&lt; &quot;20*10= &quot; &lt;&lt; prodFutureResult.get() &lt;&lt; std::endl;
+  std::cout &lt;&lt; &quot;20/10= &quot; &lt;&lt; divFutureResult.get() &lt;&lt; std::endl;
+  prodThread.join();
+  divThread.join();
+  std::cout &lt;&lt; std::endl;
+}
+</code></pre>
+<h2 id="packaged_task">packaged_task</h2>
+<p>在一些业务中，我们可能会有很多的任务需要调度。这时我们常常会设计出任务队列和线程池的结构。此时，就可以使用<code>packaged_task</code>来包装任务。<code>packaged_task</code>绑定到一个函数或者可调用对象上。当它被调用时，它就会调用其绑定的函数或者可调用对象。并且，可以通过与之相关联的<code>future</code>来获取任务的结果。调度程序只需要处理<code>packaged_task</code>，而非各个函数。<br>
+<code>packaged_task</code>对象是一个可调用对象，它可以被封装成一个<code>std::fucntion</code>，或者作为线程函数传递给<code>std::thread</code>，或者直接调用。<code>packaged_task</code>中可以传入函数对象，函数指针，lambda函数等。注意，这些函数并不是在<code>package_task</code>构造时被执行，需要手动invoke，才能执行。可以在当前线程执行，也可以被move到其他线程。</p>
+<h3 id="example-2">example</h3>
+<pre><code class="language-c++">double concurrent_worker(int min, int max) {
+  double sum = 0;
+  for (int i = min; i &lt;= max; i++) {
+    sum += sqrt(i);
+  }
+  return sum;
+}
+
+double concurrent_task(int min, int max) {
+  vector&lt;future&lt;double&gt;&gt; results; // ①
+
+  unsigned concurrent_count = thread::hardware_concurrency();
+  min = 0;
+  for (int i = 0; i &lt; concurrent_count; i++) { // ②
+    packaged_task&lt;double(int, int)&gt; task(concurrent_worker); // ③
+    results.push_back(task.get_future()); // ④
+
+    int range = max / concurrent_count * (i + 1);
+    thread t(std::move(task), min, range); // ⑤
+    t.detach();
+
+    min = range + 1;
+  }
+
+  cout &lt;&lt; &quot;threads create finish&quot; &lt;&lt; endl;
+  double sum = 0;
+  for (auto&amp; r : results) {
+    sum += r.get(); // ⑥
+  }
+  return sum;
+}
+
+int main() {
+  auto start_time = chrono::steady_clock::now();
+
+  double r = concurrent_task(0, MAX);
+
+  auto end_time = chrono::steady_clock::now();
+  auto ms = chrono::duration_cast&lt;chrono::milliseconds&gt;(end_time - start_time).count();
+  cout &lt;&lt; &quot;Concurrent task finish, &quot; &lt;&lt; ms &lt;&lt; &quot; ms consumed, Result: &quot; &lt;&lt; r &lt;&lt; endl;
+  return 0;
+}
+</code></pre>
+<p>在这段代码中：</p>
+<ol>
+<li>首先创建一个集合来存储future对象。我们将用它来获取任务的结果。</li>
+<li>同样的，根据CPU的情况来创建线程的数量。</li>
+<li>将任务包装成packaged_task。请注意，由于concurrent_worker被包装成了任务，我们无法直获取它的return值。而是要通过future对象来获取。</li>
+<li>获取任务关联的future对象，并将其存入集合中。</li>
+<li>通过一个新的线程来执行任务，并传入需要的参数。</li>
+<li>通过future集合，逐个获取每个任务的计算结果，将其累加。这里r.get()获取到的就是每个任务中concurrent_worker的返回值。</li>
+</ol>
+<h2 id="async">async</h2>
+<p>async 是更上层的封装</p>
+<pre><code class="language-c++">template&lt; class Function, class... Args &gt;
+std::future&lt;std::invoke_result_t&lt;std::decay_t&lt;Function&gt;, 
+                                 std::decay_t&lt;Args&gt;...&gt;&gt;
+    async( std::launch policy, Function&amp;&amp; f, Args&amp;&amp;... args );
+
+template&lt; class Function, class... Args&gt;
+std::future&lt;std::invoke_result_t&lt;std::decay_t&lt;Function&gt;, 
+                                              std::decay_t&lt;Args&gt;...&gt;&gt;
+    async( Function&amp;&amp; f, Args&amp;&amp;... args );
+</code></pre>
+<p><code>std::launch</code> <code>policy</code> 有两种：<code>async</code> 或 <code>deferred</code>。两者的区别在于，<code>async</code>是在新线程中异步执行，通过返回的<code>future</code>的<code>get</code>函数来取值。而<code>deferred</code> 是在当前线程中同步执行，但请注意，并不是立即执行，而是延后到<code>get</code>函数被调用的时候才执行，这种取值的行为又被称为lazy evaluation。没有std::launch的重载版本表现如同以 policy 为 <code>std::launch::async</code> | <code>std::launch::deferred</code> 调用  。换言之， f 可能执行于另一线程，或者它可能在查询产生的 <code>std::future</code> 的值时同步运行。</p>
+<h3 id="example-3">example</h3>
+<pre><code class="language-c++">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+#include &lt;algorithm&gt;
+#include &lt;numeric&gt;
+#include &lt;future&gt;
+#include &lt;string&gt;
+#include &lt;mutex&gt;
+ 
+std::mutex m;
+struct X {
+    void foo(int i, const std::string&amp; str) {
+        std::lock_guard&lt;std::mutex&gt; lk(m);
+        std::cout &lt;&lt; str &lt;&lt; ' ' &lt;&lt; i &lt;&lt; '\n';
+    }
+    void bar(const std::string&amp; str) {
+        std::lock_guard&lt;std::mutex&gt; lk(m);
+        std::cout &lt;&lt; str &lt;&lt; '\n';
+    }
+    int operator()(int i) {
+        std::lock_guard&lt;std::mutex&gt; lk(m);
+        std::cout &lt;&lt; i &lt;&lt; '\n';
+        return i + 10;
+    }
+};
+ 
+template &lt;typename RandomIt&gt;
+int parallel_sum(RandomIt beg, RandomIt end)
+{
+    auto len = end - beg;
+    if (len &lt; 1000)
+        return std::accumulate(beg, end, 0);
+ 
+    RandomIt mid = beg + len/2;
+    auto handle = std::async(std::launch::async,
+                             parallel_sum&lt;RandomIt&gt;, mid, end);
+    int sum = parallel_sum(beg, mid);
+    return sum + handle.get();
+}
+ 
+int main()
+{
+    std::vector&lt;int&gt; v(10000, 1);
+    std::cout &lt;&lt; &quot;The sum is &quot; &lt;&lt; parallel_sum(v.begin(), v.end()) &lt;&lt; '\n';
+ 
+    X x;
+    // Calls (&amp;x)-&gt;foo(42, &quot;Hello&quot;) with default policy:
+    // may print &quot;Hello 42&quot; concurrently or defer execution
+    auto a1 = std::async(&amp;X::foo, &amp;x, 42, &quot;Hello&quot;);
+    // Calls x.bar(&quot;world!&quot;) with deferred policy
+    // prints &quot;world!&quot; when a2.get() or a2.wait() is called
+    auto a2 = std::async(std::launch::deferred, &amp;X::bar, x, &quot;world!&quot;);
+    // Calls X()(43); with async policy
+    // prints &quot;43&quot; concurrently
+    auto a3 = std::async(std::launch::async, X(), 43);
+    a2.wait();                     // prints &quot;world!&quot;
+    std::cout &lt;&lt; a3.get() &lt;&lt; '\n'; // prints &quot;53&quot;
+} // if a1 is not done at this point, destructor of a1 prints &quot;Hello 42&quot; here
+</code></pre>
+
+              </div>
+              <div class="toc-container">
+                <ul class="markdownIt-TOC">
+<li>
+<ul>
+<li><a href="#future-promise">future &amp; promise</a>
+<ul>
+<li><a href="#example">example</a></li>
+</ul>
+</li>
+<li><a href="#packaged_task">packaged_task</a>
+<ul>
+<li><a href="#example-2">example</a></li>
+</ul>
+</li>
+<li><a href="#async">async</a>
+<ul>
+<li><a href="#example-3">example</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://wangpifu.github.io/post/cmake-xue-xi-ji-yi-ci-yun-wei-shi-zhan/">
+              <h3 class="post-title">
+                CMake 初探
+              </h3>
+            </a>
+          </div>
+        
+
+        
+          
+            <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+<script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: 'c618ca9283439df7d7b5',
+    clientSecret: '9d9da4b14992b1b52b311e7f5a7ab89a9694b501',
+    repo: 'wangpifu.github.io',
+    owner: 'wangpifu',
+    admin: ['wangpifu'],
+    id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false  // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+          
+
+          
+        
+
+        <div class="site-footer">
+  Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a>
+  <a class="rss" href="https://wangpifu.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>
