@@ -2,7 +2,7 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>https://wangpifu.github.io</id>
     <title>wangpifu</title>
-    <updated>2020-05-23T20:41:16.441Z</updated>
+    <updated>2020-05-23T20:49:36.158Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
     <link rel="alternate" href="https://wangpifu.github.io"/>
     <link rel="self" href="https://wangpifu.github.io/atom.xml"/>
@@ -1373,7 +1373,7 @@ int pthread_getaffinity_np(pthread_t thread, size_t cpusetsize, cpu_set_t *cpuse
 <h2 id="hyperthreading-numa">Hyperthreading &amp; NUMA</h2>
 <p>现代cpu会有多个core，每个core可能会支持两个线程。可以通过<code>lscpu</code> 或者<code>lstopo</code> 查看。比如这张网上的图片。<br>
 <img src="https://wangpifu.github.io/post-images/1588961186982.png" alt="" loading="lazy"><br>
-在一些强大的工作站上会有不止一个scoket，比如我工作的机器有两个sockets，每个socket有8个core。如果hyperthreading(HT) enabled,那就将有32个hardware thread. 他们处在不同的numa（非统一内存访问架构）下，即某些cpu之间松散连接着甚至不共享memory and bus。那么hardware thread共享什么呢，有怎么关系到我们的程序呢？看上图，每个core内的两个threads会共享L1 和 L2 cache，同一个socket下的所有核会共享L3。 对于multi-socket机器，通常来讲每个socket有自己L3cache。对于NUMA，每个processor会访问自己的DRAM,不同processor之间通过一些通信机制来互相访问（QPI?）. 可以看到HT仅仅是在物理核心上使用了两个物理任务描述符，却没有增加实际的物理计算能力。 他的好处在于如果两个程序被调度到了同一个core，他们可以共享cache和TLB来降低任务切换开销。但是如果两个程序需要抢夺物理执行资源，那么反而会增加延时。对于低延迟交易来讲，我认为disable这个更好，因为它会损害性能增高延迟。但是对于互联网来讲，这个可以提高吞吐量，所以在互联网业务中，可以依据具体业务决定是否enable。对于不同numa来说，他们访问彼此的cache要明显该与访问自己的cache， 可以通过命令<code>numactl -H</code>查看，这给我们的启发是尽量让相关的任务处在同一个numa node下。</p>
+在一些强大的工作站上会有不止一个scoket，比如我工作的机器有两个sockets，每个socket有8个core。如果hyperthreading(HT) enabled,那就将有32个hardware thread. 他们处在不同的numa（非统一内存访问架构）下(即某些cpu之间松散连接着,甚至不共享memory and bus)。那么hardware thread共享什么呢，又怎么关系到我们的程序呢？看上图，每个core内的两个threads会共享L1 和 L2 cache，同一个socket下的所有核会共享L3。 对于multi-socket机器，通常来讲每个socket有自己L3cache。对于NUMA，每个processor会访问自己的DRAM,不同processor之间通过一些通信机制来互相访问（QPI）. 可以看到HT仅仅是在物理核心上使用了两个物理任务描述符，却没有增加实际的物理计算能力。 他的好处在于如果两个程序被调度到了同一个core，他们可以共享cache和TLB来降低任务切换开销。但是如果两个程序需要抢夺物理执行资源，那么反而会增加延时。对于低延迟交易来讲，我认为disable这个更好，因为它会损害性能增高延迟。但是对于互联网来讲，这个可以提高吞吐量，所以在互联网业务中，可以依据具体业务决定是否enable。对于不同numa来说，他们访问彼此的cache要明显慢于访问自己的cache， 可以通过命令<code>numactl -H</code>查看，这给我们的启发是尽量让相关的任务处在同一个numa node下。</p>
 <h3 id="查看cpu信息">查看cpu信息</h3>
 <p>查看处理器核数：<code>cat /proc/cpuinfo | grep &quot;cpu cores&quot; | uniq</code> 即每个物理处理器的core的个数，例如Intel(R) Xeon(R) CPU E5-2690 @2.90GHz在每个socket上有8 cores<br>
 查看逻辑处理器核数 ：<code>cat /proc/cpuinfo</code>， 如果siblings和cpu cores一致，则不支持超线程<br>
