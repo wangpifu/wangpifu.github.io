@@ -2,7 +2,7 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>https://wangpifu.github.io</id>
     <title>wangpifu</title>
-    <updated>2020-05-23T20:49:36.158Z</updated>
+    <updated>2020-06-03T03:59:19.466Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
     <link rel="alternate" href="https://wangpifu.github.io"/>
     <link rel="self" href="https://wangpifu.github.io/atom.xml"/>
@@ -10,6 +10,76 @@
     <logo>https://wangpifu.github.io/images/avatar.png</logo>
     <icon>https://wangpifu.github.io/favicon.ico</icon>
     <rights>All rights reserved 2020, wangpifu</rights>
+    <entry>
+        <title type="html"><![CDATA[关于std::vector]]></title>
+        <id>https://wangpifu.github.io/post/guan-yu-stdvector/</id>
+        <link href="https://wangpifu.github.io/post/guan-yu-stdvector/">
+        </link>
+        <updated>2020-05-31T13:34:02.000Z</updated>
+        <content type="html"><![CDATA[<p><code>vector</code>应该是我们平时用到最多的容器之一了，这里我们做一下梳理。<br>
+<code>std::vector</code> 是动态的，在heap上分配内存，在内存中具有连续的存储空间。可以快速地随机访问，在末尾插入和删除较快，在中间插入或删除较慢。适用于元素结构简单(如果是复杂的结构体，我们可以存储它的指针)，变化小，并且频繁随机访问的场景。</p>
+<h3 id="insert-erase时间复杂度">insert() erase()时间复杂度</h3>
+<p>当操作发生在中间时，需要O(n) 即线性时间（liner time）完成操作。因为需要将在插入/删除之后的每一个元素都向前/向后移动。 当操作发生在末尾时则只需要O(1)时间。</p>
+<h3 id="vectorerase-和-stdremove-区别">vector.erase() 和 std::remove() 区别</h3>
+<p>其实我们先看一下<code>erase()</code>的代码（https://github.com/karottc/sgi-stl/blob/master/stl_vector.h）发现<code>erase()</code>在移动完数据后会销毁多余的部分并重置尾指针。<br>
+再看一下cppreference关于<code>std::remove</code>的介绍</p>
+<pre><code class="language-c++">template&lt; class ForwardIt, class T &gt;
+ForwardIt remove(ForwardIt first, ForwardIt last, const T&amp; value)
+{
+    first = std::find(first, last, value);
+    if (first != last)
+        for(ForwardIt i = first; ++i != last; )
+            if (!(*i == value))
+                *first++ = std::move(*i);
+    return first;
+}
+</code></pre>
+<p>它只是通过双指针，将所有不是value的元素依次前移。如果是<code>auto end = std::remove(vector.begin(), vector.end(), value)</code> 那么结果就是在end后依然有数据存在:</p>
+<pre><code class="language-c++">#include &lt;vector&gt;
+#include &lt;algorithm&gt;
+#include &lt;iostream&gt;
+ 
+int main( )
+{
+    std::vector&lt;int&gt; c{0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    std::cout &lt;&lt; c.size() &lt;&lt; std::endl;
+    std::remove(c.begin(), c.end(), 5);
+    std::cout &lt;&lt; c.size() &lt;&lt; std::endl;
+    for (auto &amp;i : c) {
+        std::cout &lt;&lt; i &lt;&lt; &quot; &quot;;
+    }
+}
+/*output:
+10
+10
+0 1 2 3 4 6 7 8 9 9
+*/
+</code></pre>
+<p>所以如果我们想真正的让这个vector有数据的销毁以及尺寸上的变化，我们需要<code>vec.erase(std::remove(vec.begin(), vec.end(), value),vec.end());</code></p>
+<h3 id="shrink_to_fit">shrink_to_fit()</h3>
+<p>其实当我们说用<code>erase()</code>删除数据时，相应的内存并没有被释放，可以通过在删除前后打印<code>capacity()</code>查看。假设又有一种需求，我们需要释放这个内存，那么就需要<code>vec.shrink_to_fit()</code>来释放（我并不晓得什么样的场景我们需要用到这个）。</p>
+<h3 id="为什么vector以15倍12扩容最好">为什么vector以1.5倍（1，2）扩容最好</h3>
+<p>我们首先谈一下扩容，当vector尺寸达到容量大小时，如果我们需要添加新的元素就需要扩容。 扩容系数的选取是时间与空间的平衡。想象一下，如果我们每次只分配capacity + 1 的空间， 那么对于每一次push_back()，我们都需要需要找一个capacity+1的空间，然后把元素从之前的空间移动到新的空间，然后在末尾写入新的元素。 所以当系数太小时，我们需要频繁的重新分配空间。当然，如果选取的系数过大，他会分配出远超需要的空间造成了浪费。通常情况下（在gcc里）扩容系数是2，但是对于一些厂商会将其优化到1.5。原因是2并不是一个对内存特别友好地系数，当系数为2时，我们可以得出每次扩容时，新尺寸必然大于所有之前分配总和这一结论。比如，前k次我们分配了 1 + 2 + 4 + ... + 2^k = 2^(k+1) - 1 的空间，下一次我们需要分配2^(k+1) 大小的空间，刚好比前面总和大1，这样我们就不能服用之前的地址。而当系数为1.5（ 1&lt; k &lt; 2）时，我们就可以复用之前分配的空间（假设之前的分配都是在连续空间上的）。</p>
+<h3 id="push_back时间复杂度">push_back时间复杂度</h3>
+<p>既然聊到了扩容，我们顺便看一下push_back() 的时间复杂度。这里我们用均摊分析法(amortized)，如果系数是k，那么对于有n个元素的vector就进行了logk(n)次扩容，每次耗费的时间是k^i(因为需要把数据从现在的位置复制到新开辟的空间), i表示从1到logk(n)，和就是 nk/k-1。 那么平摊到每一次就是O(1) 即常数时间（constant time）。</p>
+<h3 id="一些性能上的考虑">一些性能上的考虑</h3>
+<h4 id="reserve">reserve()</h4>
+<p>其实通过扩容我们可以看出这是一个相当耗时的操作，它涉及到分配新的内存，拷贝旧数据，释放旧内存。所以如果我们可以确定大概的数据大小是，最好对容器进行预分配操作<code>vec.reserve(reserve_size);</code>.这不仅仅避免了上述的昂贵操作，同是也避免了因为<em>扩容而导致的迭代器失效</em>。</p>
+<h4 id="拷贝一个vector">拷贝一个vector</h4>
+<p>当我们将一个vector2拷贝到另一个vector1时(假设同类型)，可以选择赋值，<code>insert</code>或者<code>push_back()</code>。这时我们最好用赋值，因为这时它可以一次性的拷贝vector2的内存。</p>
+<h4 id="vectoratindex">vector.at(index)</h4>
+<p>at 可以检测边界防止越界，但是有时可能会比迭代器和<code>operator[]</code>慢。这是因为没有边界检测的读取可能只需要一条处理器指令，但是at需要读取vector大小，与index进行比较，这样会多出很多处理器指令。</p>
+<h4 id="避免在vector前部插入元素">避免在vector前部插入元素</h4>
+<p>如上文所述，当你需要插入元素是，每个插入节点之后的元素都需要整体复制后移。当vector的元素越多，这个性能就越差。时间复杂度是O(n)。所以如果有频繁的插入需求（比如LRU），那么我们也许可以考虑std::list，因为他的插入复杂度是O(1).</p>
+<h4 id="使用emplace_back">使用emplace_back()</h4>
+<p>emplace_back()的好处是他是在vector内部空间原地构造，与<code>push_back()</code>相比少了临时对象的拷贝/转移以及销毁。大部分时候，emplace_back() 都比 push_back() 要好。具体参考effective modern c++ item 42.</p>
+<h4 id="别使用vectorbool">别使用vector<bool></h4>
+<p>因为他里面不是真正的以一个字节存储这bool，而是优化成了每个bit代表一个bool。然而单个bit的引用是被禁止的，所以<code>operator[]</code>返回的不是bool而是一个代理对象，引用了某一bit。所以下列代码会出错：</p>
+<pre><code class="language-c++">vector&lt;bool&gt; v;
+bool* v0 = &amp;v[0]; // it is actually vector&lt;bool&gt;::reference type
+</code></pre>
+]]></content>
+    </entry>
     <entry>
         <title type="html"><![CDATA[unix socket 编程总结]]></title>
         <id>https://wangpifu.github.io/post/unix-socket-bian-cheng-zong-jie/</id>
