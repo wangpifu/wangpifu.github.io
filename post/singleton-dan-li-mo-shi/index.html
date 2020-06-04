@@ -2,11 +2,11 @@
   <head>
     <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>关于 | wangpifu</title>
+<title>Singleton 单例模式 | wangpifu</title>
 <link rel="shortcut icon" href="https://wangpifu.github.io/favicon.ico?v=1591307059556">
 <link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
 <link rel="stylesheet" href="https://wangpifu.github.io/styles/main.css">
-<link rel="alternate" type="application/atom+xml" title="关于 | wangpifu - Atom Feed" href="https://wangpifu.github.io/atom.xml">
+<link rel="alternate" type="application/atom+xml" title="Singleton 单例模式 | wangpifu - Atom Feed" href="https://wangpifu.github.io/atom.xml">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
 
 
@@ -20,15 +20,13 @@
 </script>
 
 
-    <meta name="description" content="
-个人博客
-
-🏠 关于本站
-记录一些平时的技术积累，感悟以及to do list
-🐣 关于本人
-一个供职于纽约某HFT的c++程序员
-..." />
-    <meta name="keywords" content="" />
+    <meta name="description" content="单例模式保证一个类仅有一个实例，并提供一个访问它的全局访问点，该实例被所有程序模块共享。
+一个简单的实现：
+template&lt;typename T&gt;
+T&amp; instance()
+{
+    static std::uni..." />
+    <meta name="keywords" content="design patterns,设计模式,c++" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
     <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
   </head>
@@ -90,44 +88,104 @@
         <div class="post-detail">
           <article class="post">
             <h2 class="post-title">
-              关于
+              Singleton 单例模式
             </h2>
             <div class="post-info">
               <span>
-                2020-04-29
+                2020-06-04
               </span>
               <span>
-                1 min read
+                3 min read
               </span>
+              
+                <a href="https://wangpifu.github.io/tag/4nx64pknU/" class="post-tag">
+                  # design patterns
+                </a>
+              
+                <a href="https://wangpifu.github.io/tag/eOGJ2ZYUiJ/" class="post-tag">
+                  # 设计模式
+                </a>
+              
+                <a href="https://wangpifu.github.io/tag/FuOuG11onv/" class="post-tag">
+                  # c++
+                </a>
               
             </div>
             
+              <img class="post-feature-image" src="https://wangpifu.github.io/post-images/guan-yu-stdvector.jpg" alt="">
+            
             <div class="post-content-wrapper">
               <div class="post-content">
-                <blockquote>
-<p>个人博客</p>
-</blockquote>
-<h2 id="关于本站">🏠 关于本站</h2>
-<p>记录一些平时的技术积累，感悟以及to do list</p>
-<h2 id="关于本人">🐣 关于本人</h2>
-<p>一个供职于纽约某HFT的c++程序员</p>
+                <p>单例模式保证一个类仅有一个实例，并提供一个访问它的全局访问点，该实例被所有程序模块共享。<br>
+一个简单的实现：</p>
+<pre><code class="language-c++">template&lt;typename T&gt;
+T&amp; instance()
+{
+    static std::unique_ptr&lt;T&gt; instance{new T{}};
+    return *instance;
+}
+</code></pre>
+<p>这里我们在函数内部定义了一个局部静态变量(local static)，它只有在instance第一次被使用时才会创建实例。c++11 也规定了local static是线程安全的, 如果我们用godbolt去看一下汇编，会看到:</p>
+<pre><code>        movzx   eax, BYTE PTR guard variable for int&amp; instance&lt;int&gt;()::instance[rip]
+        ...
+        mov     edi, OFFSET FLAT:guard variable for int&amp; instance&lt;int&gt;()::instance
+        call    __cxa_guard_acquire
+        ...
+        call    operator new(unsigned long)
+        ...
+        call    std::unique_ptr&lt;int, std::default_delete&lt;int&gt; &gt;::unique_ptr&lt;std::default_delete&lt;int&gt;, void&gt;(int*)
+        mov     edi, OFFSET FLAT:guard variable for int&amp; instance&lt;int&gt;()::instance
+        call    __cxa_guard_release
+        ...
+        call    __cxa_atexit
+</code></pre>
+<p>它保证了并发的线程会等待初始化的完成。non-local static object 的初始化发生在main函数之前，所以不存在线程安全问题，但是以如果你有多个non-local static对象，他们的初始化顺序是随机的。<br>
+另外也可以写成类模板，这样其他类就可以以crtp的方式继承单例类并且拥有单例的特性：</p>
+<pre><code class="language-c++">template&lt;typename T&gt;
+class Singleton
+{
+protected:
+    Singleton() noexcept = default;
+
+    Singleton(const Singleton&amp;) = delete;
+
+    Singleton&amp; operator=(const Singleton&amp;) = delete;
+
+    // to silence base class Singleton&lt;T&gt; has a non-virtual destructor [-Weffc++]
+    virtual ~Singleton() = default; 
+
+public:
+    static T&amp; get_instance() noexcept(std::is_nothrow_constructible&lt;T&gt;::value)
+    {
+        // Guaranteed to be destroyed. Instantiated on first use. Thread safe in C++11
+        static T instance;
+
+        return instance;
+    }
+};
+class TradeServer : public Singleton&lt;TradeServer&gt;
+{
+}
+</code></pre>
+<p>为什么不直接继承然后用virtual 的 <code>get_instance()</code>， 因为会产生vtable，增大了内存使用空间，同时增加了vtable跳转，性能下降。</p>
 
               </div>
               <div class="toc-container">
-                <ul class="markdownIt-TOC">
-<li>
-<ul>
-<li><a href="#%E5%85%B3%E4%BA%8E%E6%9C%AC%E7%AB%99">🏠 关于本站</a></li>
-<li><a href="#%E5%85%B3%E4%BA%8E%E6%9C%AC%E4%BA%BA">🐣 关于本人</a></li>
-</ul>
-</li>
-</ul>
-
+                
               </div>
             </div>
           </article>
         </div>
 
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://wangpifu.github.io/post/type-erasure/">
+              <h3 class="post-title">
+                Type erasure
+              </h3>
+            </a>
+          </div>
         
 
         
