@@ -2,7 +2,7 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>https://wangpifu.github.io</id>
     <title>wangpifu</title>
-    <updated>2020-06-03T03:59:19.466Z</updated>
+    <updated>2020-06-04T18:30:27.490Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
     <link rel="alternate" href="https://wangpifu.github.io"/>
     <link rel="self" href="https://wangpifu.github.io/atom.xml"/>
@@ -10,6 +10,117 @@
     <logo>https://wangpifu.github.io/images/avatar.png</logo>
     <icon>https://wangpifu.github.io/favicon.ico</icon>
     <rights>All rights reserved 2020, wangpifu</rights>
+    <entry>
+        <title type="html"><![CDATA[Type erasure]]></title>
+        <id>https://wangpifu.github.io/post/type-erasure/</id>
+        <link href="https://wangpifu.github.io/post/type-erasure/">
+        </link>
+        <updated>2020-06-02T18:34:31.000Z</updated>
+        <content type="html"><![CDATA[<p>type erasure这个术语在c++中很少被提及，但是它所代表的技术却被非常广泛的应用。很多人听到这个词的第一印象可能是多态，通过继承与虚函数<code>override</code>来实现。但其实当我们在c++中聊到type erasure,他更多的是表示通过模板和继承来共同实现的。<code>std::any</code> 就是一个例子。不过这篇文章我们介绍一下所有和type erasure概念有关的技术。</p>
+<h2 id="基于void">基于void*</h2>
+<p><code>void*</code>几乎可以说是任何类型的alias，所以当我们用这个的时候大部分就是将某个类型转换成<code>void*</code>然后传递。比如</p>
+<pre><code class="language-c++">void* bsearch (const void *key, 
+              const void *base,
+              size_t nmemb, 
+              size_t size,
+              int (*compar)(const void*, const void*));
+</code></pre>
+<p>为了让他能处理多种类型，我们把参数射程了<code>void*</code>. 这样类型就被我们擦除了，但问题是这样会造成类型安全不能保证，当你<code>key</code> 和<code>compar</code>所接受的类型不一样时，就会在运行时出现<em>Undefined Behavior</em>错误，看如下例子：</p>
+<pre><code class="language-c++">int compareChar(const void*a , const void* b)
+{
+    return -strcmp ((const char *)a, (const char *)b);
+}
+bool findInVector(std::vector&lt;int&gt;&amp; vec, int val)
+{
+    bsearch(&amp;val, vec.data(), vec.size(), sizeof(int), compareChar);
+}
+</code></pre>
+<h2 id="基于obeject-oriented继承">基于Obeject oriented继承</h2>
+<p>比如我们有如下代码：</p>
+<pre><code class="language-c++">struct Circle : public Shape
+{
+public:
+    void draw() override
+    {
+        //...impl
+    }
+};
+
+void drawAShape(Shape* s);
+</code></pre>
+<p>通过继承自一个基类，然后在接口里传入基类的指针。 这个和<code>void*</code>比起来的好处是不管真正被调用的是什么类型，他一定有相应的函数可以被调用，所以不会出现<em>UB</em>，也保障了类型安全。但我感觉这算不上真正的类型擦除，因为他只是擦除了调用处的对象类型。他的问题在于要求每个实现类型必须继承自某一个基类，很多时候过多的继承关系会有耦合问题或者其他设计问题。</p>
+<h2 id="template">template</h2>
+<p>比如<code>std::function</code>,<br>
+<code>std::function&lt;bool(int, int)&gt; predicate;</code>,他对于type的要求是非侵入性的，即duck-typing-like(如果一个东西走路像鸭子，叫的像鸭子，那他就是鸭子)。从<code>std::function</code>的例子我们可以看到，它对类型的唯一要求就是含有<code>bool operator()(int, int)</code>。</p>
+<h2 id="继承与temnplate的结合">继承与temnplate的结合</h2>
+<p>std::any(c++17)就是一个很好的例子，它允许你通过any这个类来保存任何类型对象，而且不需要在构建时指定模板参数。</p>
+<pre><code class="language-c++">std::any a = 1;
+std::cout &lt;&lt; std::any_cast&lt;int&gt;(a) &lt;&lt; std::endl; // output 1
+a = 3.14;
+std::cout &lt;&lt; std::any_cast&lt;double&gt;(a) &lt;&lt; std::endl; // output 3.1
+std::cout &lt;&lt; a.is&lt;int&gt;(); //output false
+</code></pre>
+<p>因为不能接受模板参数，我们需要在内部含有一个类模板来实现构造时的类型推导。但是如果仅仅有这个类模板，我们发现还是要从<code>any</code>外面传入模板参数才能写出构造函数，这样与我们的初衷不符。所以我们需要一个基类来作为<code>any</code>的成员变量，然后让一个类模板继承自这个基类来完成类型推导。基类会作为接口，其内部需要定义我们我们需要的方法的虚函数.由于我们会在<code>any</code>类内部创建一个以<code>Base</code>为基类的<code>Derived</code>对象，所以我们可以用<code>unique_ptr</code>来管理生命周期</p>
+<pre><code class="language-c++">struct any
+{
+    template &lt;typename U&gt;
+    any(U&amp;&amp; value) : m_ptr(new Derived&lt;typename std::decay&lt;U&gt;::type&gt;(std::forward&lt;U&gt;(value))){}
+
+    template &lt;typename U&gt;
+    any&amp; operator=(const any&amp; rhs)
+    {
+        if(m_ptr == rhs.m_ptr)
+            return *this;
+        m_ptr = std::unique_ptr&lt;Base&gt;(new Derived&lt;U&gt;(rhs.m_ptr-&gt;m_value));
+    }
+
+    struct Base
+    {
+        virtual ~Base(){}
+    };
+
+    template&lt;typename T&gt;
+    struct Derived : Base
+    {
+        template &lt;typename U&gt;
+        explicit Derived(U&amp;&amp; value) : m_value(std::forward&lt;U&gt;(value)){}
+
+        T m_value;
+    };
+
+std::unique_ptr&lt;Base&gt; m_ptr;
+};
+</code></pre>
+<p>接下来我们实现<code>is</code>和<code>any_cast</code>.我们可以利用<code>dynamic_cast</code>的特性去做检测，即如果不能被安全的cast成一个派生类，它会返回<code>nullptr</code>。当然我们也可以选择在<code>any</code>类里存储<code>std::type_index</code>信息，这样在性能上应该可以更好。</p>
+<pre><code class="language-c++">struct any
+{
+    // .....省略上面写过的代码
+
+    template&lt;class U&gt;
+    bool is() const
+    {
+        return dynamic_cast&lt;Derived&lt;U&gt;*&gt;(m_ptr.get()) != nullptr;
+    }
+
+    template &lt;class U&gt;
+    U&amp; any_cast()
+    {
+        auto d = dynamic_cast&lt;Derived&lt;U&gt;*&gt;(m_ptr.get());
+        if(d == nullptr)
+        {
+            throw bad_cast();
+        }
+        return d-&gt;m_value;
+    }
+};
+</code></pre>
+<p>以上大概是<code>std::any</code>的一个简陋实现，<code>Derived</code>通过模板来存储了真实类型，而<code>Base</code>作为含有接口的抽象类在<code>any</code>被赋值时将类型进行擦除。这种技术在平时工作中的使用场景非常多，比如说你有如下需求：</p>
+<ul>
+<li>用同一种方式处理不同类型</li>
+<li>用同一种类型容器保存不同类型对象</li>
+</ul>
+]]></content>
+    </entry>
     <entry>
         <title type="html"><![CDATA[关于std::vector]]></title>
         <id>https://wangpifu.github.io/post/guan-yu-stdvector/</id>
@@ -1731,18 +1842,6 @@ pthread_once_t once_control = PTHREAD_ONCE_INIT;
 <li><code>pthread_equal</code> 比较两个线程 ID 是否相等.</li>
 <li><code>pthread_once</code> 本函数使用初值为PTHREAD_ONCE_INIT的once_control变量保证init_routine()函数在本进程执行序列中仅执行一次。在多线程编程环境下，尽管pthread_once()调用会出现在多个线程中，init_routine()函数仅执行一次，究竟在哪个线程中执行是不定的，是由内核调度来决定。Linux Threads使用互斥锁和条件变量保证由pthread_once()指定的函数执行且仅执行一次，而once_control表示是否执行过。如果once_control的初值不是PTHREAD_ONCE_INIT（Linux Threads定义为0），pthread_once() 的行为就会不正常。在Linux中，实际&quot;一次性函数&quot;的执行状态有三种：NEVER（0）、IN_PROGRESS（1）、DONE （2），如果once初值设为1，则由于所有pthread_once()都必须等待其中一个激发&quot;已执行一次&quot;信号，因此所有pthread_once ()都会陷入永久的等待中；如果设为2，则表示该函数已执行过一次，从而所有pthread_once()都会立即返回0</li>
 </ul>
-]]></content>
-    </entry>
-    <entry>
-        <title type="html"><![CDATA[第一篇博客]]></title>
-        <id>https://wangpifu.github.io/post/first-blog/</id>
-        <link href="https://wangpifu.github.io/post/first-blog/">
-        </link>
-        <updated>2020-04-29T09:27:05.000Z</updated>
-        <content type="html"><![CDATA[<p>这是一篇建立在github pages，用Gridea构建管理的私人博客站点。目前来看Gridea是最方便的搭建管理软件，避免了安装nodejs 或者 ruby。 这对于Windows系统非常方便。坦白来讲，我并不希望在我的Windows box上安装任何和技术开发相关的软件，因为他们的使用频率很低，最终会被我遗忘在漫长的时光里。而我的开发机器（based on linux），我又希望它能只承载和开发相关的事务。另外，Gridea看起来更加直观与人性化，避免了许多与写作不相关的操作。希望Gridea可以一直被维护下去，感谢Gridea。cnblog本来是我的第一选择，但是需要手机号注册。CSDN则有太多的广告。知乎的话，我更倾向于发布仔细审视后的文章。这个站点则会更随意一些，有些想法我可以先记载下来，在日后慢慢的更改完善。</p>
-<p>写博客的动力来自于一次失败的面试。我意识到很多技术的积累不能光靠工作，以及需要了解平时工作下的更深入的东西。人必须要不断地走出舒适圈，去接触自己不熟悉的东西，再能慢慢变得全能起来。我是一个不喜欢走在科技前端的人，平时更倾向于利用纸笔做笔记，但是现在意识到对于代码来讲，博客可能是个更合适的地方。对于刚开始的几篇文章，发布的频率可能比较高，内容可能不够精细，因为我希望能提纲挈领地把一些我在脑海中总结过的知识转移到这个站点上来，会在随后的日子里慢慢打磨。另外，我此时迫不及待地希望我能把一些需要学习的知识点电子化的记录下来，这也会导致初期一些文章显得杂乱。</p>
-<p>希望明天会更好。<br>
---20200429 阴天 纽约</p>
 ]]></content>
     </entry>
 </feed>
